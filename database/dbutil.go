@@ -41,21 +41,24 @@ func Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 
 func Operation(stub shim.ChaincodeStubInterface, op string, function string, collection string, args []string) pb.Response {
 	t := new(db.DbManager)
+	t.ChainCodeStub = stub
+	t.CacheData = map[string][]byte{}
 	if op == "table" {
-		return TableOperation(stub, t, function, args)
+		return TableOperation(t, function, args)
 	}else if op == "schema" {
-		return SchemaOperation(stub, t, function, args)
+		return SchemaOperation(t, function, args)
 	}else if op == "tableRow" {
-		return TableRowOperation(stub, t, function, args)
+		return TableRowOperation(t, function, args)
 	}else if op == "schemaRow" {
-		return SchemaRowOperation(stub, t, function, args)
+		return SchemaRowOperation(t, function, args)
 	}else if op == "other" {
-		return OtherOperation(stub, t, collection, function, args)
+		return OtherOperation(t, collection, function, args)
 	}
 	return shim.Error("Invalid invoke operation name. Expecting \"table\" \"schema\" \"tableRow\" \"schemaRow\" \"other\"")
 }
 
-func TableOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, function string, args []string) pb.Response {
+func TableOperation(t *db.DbManager, function string, args []string) pb.Response {
+	stub := t.ChainCodeStub
 	if function == "add" {
 		transient,err := stub.GetTransient(); if err != nil {
 			return shim.Error(err.Error())
@@ -64,7 +67,7 @@ func TableOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, function 
 		if !in {
 			return shim.Error(fmt.Sprintf("GetTransient %s is null", TABLEJSON))
 		}
-		name,err := t.AddTableByJson(stub, string(tableJson)); if err != nil {
+		name,err := t.AddTableByJson(string(tableJson)); if err != nil {
 			return shim.Error(err.Error())
 		}
 		return shim.Success([]byte(name))
@@ -76,7 +79,7 @@ func TableOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, function 
 		if !in {
 			return shim.Error(fmt.Sprintf("GetTransient %s is null", TABLEJSON))
 		}
-		name,err := t.UpdateTableByJson(stub, string(tableJson)); if err != nil {
+		name,err := t.UpdateTableByJson(string(tableJson)); if err != nil {
 			return shim.Error(err.Error())
 		}
 		return shim.Success([]byte(name))
@@ -85,7 +88,7 @@ func TableOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, function 
 			return shim.Error("args length < 1")
 		}
 		tableName := args[0]
-		err := t.DelTable(stub, tableName); if err != nil {
+		err := t.DelTable(tableName); if err != nil {
 			return shim.Error(err.Error())
 		}
 		return shim.Success(nil)
@@ -94,7 +97,7 @@ func TableOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, function 
 			return shim.Error("args length < 1")
 		}
 		tableName := args[0]
-		bytes,err := t.QueryTableBytes(stub, tableName); if err != nil {
+		bytes,err := t.QueryTableBytes(tableName); if err != nil {
 			return shim.Error(err.Error())
 		}
 		return shim.Success(bytes)
@@ -107,12 +110,12 @@ func TableOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, function 
 		pageSize,err := t.StringToInt64(number); if err != nil {
 			return shim.Error(err.Error())
 		}
-		bytes,err := t.QueryTableHistoryBytes(stub, tableName, int32(pageSize)); if err != nil {
+		bytes,err := t.QueryTableHistoryBytes(tableName, int32(pageSize)); if err != nil {
 			return shim.Error(err.Error())
 		}
 		return shim.Success(bytes)
 	}else if function == "all" {
-		bytes,err := t.QueryAllTableNameBytes(stub); if err != nil {
+		bytes,err := t.QueryAllTableNameBytes(); if err != nil {
 			return shim.Error(err.Error())
 		}
 		return shim.Success(bytes)
@@ -120,7 +123,8 @@ func TableOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, function 
 	return shim.Error("Invalid invoke function name. Expecting \"add\" \"update\" \"delete\" \"get\" \"history\" \"all\"")
 }
 
-func SchemaOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, function string, args []string) pb.Response {
+func SchemaOperation(t *db.DbManager, function string, args []string) pb.Response {
+	stub := t.ChainCodeStub
 	if function == "add" {
 		transient,err := stub.GetTransient(); if err != nil {
 			return shim.Error(err.Error())
@@ -129,7 +133,7 @@ func SchemaOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, function
 		if !in {
 			return shim.Error(fmt.Sprintf("GetTransient %s is null", SCHEMAJSON))
 		}
-		name,err := t.AddSchemaByJson(stub, string(schemaJson)); if err != nil {
+		name,err := t.AddSchemaByJson(string(schemaJson)); if err != nil {
 			return shim.Error(err.Error())
 		}
 		return shim.Success([]byte(name))
@@ -141,7 +145,7 @@ func SchemaOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, function
 		if !in {
 			return shim.Error(fmt.Sprintf("GetTransient %s is null", SCHEMAJSON))
 		}
-		name,err := t.UpdateSchemaByJson(stub, string(schemaJson)); if err != nil {
+		name,err := t.UpdateSchemaByJson(string(schemaJson)); if err != nil {
 			return shim.Error(err.Error())
 		}
 		return shim.Success([]byte(name))
@@ -150,7 +154,7 @@ func SchemaOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, function
 			return shim.Error("args length < 1")
 		}
 		schemaName := args[0]
-		if err := t.DelSchema(stub, schemaName); err != nil {
+		if err := t.DelSchema(schemaName); err != nil {
 			return shim.Error(err.Error())
 		}
 		return shim.Success(nil)
@@ -159,7 +163,7 @@ func SchemaOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, function
 			return shim.Error("args length < 1")
 		}
 		schemaName := args[0]
-		bytes,err := t.QuerySchemaBytes(stub, schemaName); if err != nil {
+		bytes,err := t.QuerySchemaBytes(schemaName); if err != nil {
 			return shim.Error(err.Error())
 		}
 		return shim.Success(bytes)
@@ -172,12 +176,12 @@ func SchemaOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, function
 		pageSize,err := t.StringToInt64(number); if err != nil {
 			return shim.Error(err.Error())
 		}
-		bytes,err := t.QuerySchemaHistoryBytes(stub, schemaName, int32(pageSize)); if err != nil {
+		bytes,err := t.QuerySchemaHistoryBytes(schemaName, int32(pageSize)); if err != nil {
 			return shim.Error(err.Error())
 		}
 		return shim.Success(bytes)
 	}else if function == "all" {
-		bytes,err := t.QueryAllSchemaNameBytes(stub); if err != nil {
+		bytes,err := t.QueryAllSchemaNameBytes(); if err != nil {
 			return shim.Error(err.Error())
 		}
 		return shim.Success(bytes)
@@ -185,7 +189,8 @@ func SchemaOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, function
 	return shim.Error("Invalid invoke function name. Expecting \"add\" \"update\" \"delete\" \"get\" \"history\" \"all\"")
 }
 
-func TableRowOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, function string, args []string) pb.Response {
+func TableRowOperation(t *db.DbManager, function string, args []string) pb.Response {
+	stub := t.ChainCodeStub
 	if function == "add" {
 		if len(args) < 1 {
 			return shim.Error("args length < 1")
@@ -198,7 +203,7 @@ func TableRowOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, functi
 		if !in {
 			return shim.Error(fmt.Sprintf("GetTransient %s is null", ROWJSON))
 		}
-		ids,err := t.AddRowByJson(stub, tableName, string(rowJson)); if err != nil {
+		ids,err := t.AddRowByJson(tableName, string(rowJson)); if err != nil {
 			return shim.Error(err.Error())
 		}
 		bytes, err := t.ConvertJsonBytes(ids)
@@ -218,7 +223,7 @@ func TableRowOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, functi
 		if !in {
 			return shim.Error(fmt.Sprintf("GetTransient %s is null", ROWJSON))
 		}
-		ids,err := t.UpdateRowByJson(stub, tableName, string(rowJson)); if err != nil {
+		ids,err := t.UpdateRowByJson(tableName, string(rowJson)); if err != nil {
 			return shim.Error(err.Error())
 		}
 		bytes, err := t.ConvertJsonBytes(ids)
@@ -232,7 +237,7 @@ func TableRowOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, functi
 		}
 		tableName := args[0]
 		id := args[1]
-		err := t.DelRowById(stub, tableName, id); if err != nil {
+		err := t.DelRowById(tableName, id); if err != nil {
 			return shim.Error(err.Error())
 		}
 		return shim.Success(nil)
@@ -246,7 +251,7 @@ func TableRowOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, functi
 		pageSize,err := t.StringToInt64(number); if err != nil {
 			return shim.Error(err.Error())
 		}
-		bytes,err := t.QueryRowWithPaginationBytes(stub, tableName, id, int32(pageSize)); if err != nil {
+		bytes,err := t.QueryRowWithPaginationBytes(tableName, id, int32(pageSize)); if err != nil {
 			return shim.Error(err.Error())
 		}
 		return shim.Success(bytes)
@@ -260,7 +265,7 @@ func TableRowOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, functi
 		pageSize,err := t.StringToInt64(number); if err != nil {
 			return shim.Error(err.Error())
 		}
-		bytes,err := t.QueryRowHistoryBytes(stub, tableName, id, int32(pageSize)); if err != nil {
+		bytes,err := t.QueryRowHistoryBytes(tableName, id, int32(pageSize)); if err != nil {
 			return shim.Error(err.Error())
 		}
 		return shim.Success(bytes)
@@ -268,7 +273,8 @@ func TableRowOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, functi
 	return shim.Error("Invalid invoke function name. Expecting \"add\" \"update\" \"delete\" \"get\" \"history\"")
 }
 
-func SchemaRowOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, function string, args []string) pb.Response {
+func SchemaRowOperation(t *db.DbManager, function string, args []string) pb.Response {
+	stub := t.ChainCodeStub
 	if function == "add" {
 		if len(args) < 1 {
 			return shim.Error("args length < 1")
@@ -281,7 +287,7 @@ func SchemaRowOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, funct
 		if !in {
 			return shim.Error(fmt.Sprintf("GetTransient %s is null", ROWJSON))
 		}
-		ids, _, err := t.AddSchemaRowByJson(stub, schemaName, string(rowJson)); if err != nil {
+		ids, _, err := t.AddSchemaRowByJson(schemaName, string(rowJson)); if err != nil {
 			return shim.Error(err.Error())
 		}
 		bytes, err := t.ConvertJsonBytes(ids)
@@ -302,7 +308,7 @@ func SchemaRowOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, funct
 		if !in {
 			return shim.Error(fmt.Sprintf("GetTransient %s is null", ROWJSON))
 		}
-		ids, _, err := t.UpdateSchemaRowByJson(stub, schemaName, id, string(rowJson)); if err != nil {
+		ids, _, err := t.UpdateSchemaRowByJson(schemaName, id, string(rowJson)); if err != nil {
 			return shim.Error(err.Error())
 		}
 		bytes, err := t.ConvertJsonBytes(ids)
@@ -316,7 +322,7 @@ func SchemaRowOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, funct
 		}
 		schemaName := args[0]
 		id := args[1]
-		rows,err := t.DelSchemaRow(stub, schemaName, id); if err != nil {
+		rows,err := t.DelSchemaRow(schemaName, id); if err != nil {
 			return shim.Error(err.Error())
 		}
 		bytes,err := t.ConvertJsonBytes(rows)
@@ -334,7 +340,7 @@ func SchemaRowOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, funct
 		pageSize,err := t.StringToInt64(number); if err != nil {
 			return shim.Error(err.Error())
 		}
-		bytes,err := t.QuerySchemaRowByWithPaginationBytes(stub, schemaName, id, int32(pageSize)); if err != nil {
+		bytes,err := t.QuerySchemaRowByWithPaginationBytes(schemaName, id, int32(pageSize)); if err != nil {
 			return shim.Error(err.Error())
 		}
 		return shim.Success(bytes)
@@ -342,13 +348,13 @@ func SchemaRowOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, funct
 	return shim.Error("Invalid invoke function name. Expecting \"add\" \"update\" \"delete\" \"get\"")
 }
 
-func OtherOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, collection string, function string, args []string) pb.Response {
+func OtherOperation(t *db.DbManager, collection string, function string, args []string) pb.Response {
 	if function == "getState" {
 		if len(args) < 1 {
 			return shim.Error("args length < 1")
 		}
 		key := args[0]
-		bytes,err := t.GetState(stub, collection, key); if err != nil {
+		bytes,err := t.GetState(collection, key); if err != nil {
 			return shim.Error(err.Error())
 		}
 		return shim.Success(bytes)
@@ -358,7 +364,7 @@ func OtherOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, collectio
 		}
 		startKey := args[0]
 		endKey := args[1]
-		bytes,err := t.GetStateByRange(stub, collection, startKey, endKey); if err != nil {
+		bytes,err := t.GetStateByRange(collection, startKey, endKey); if err != nil {
 			return shim.Error(err.Error())
 		}
 		return shim.Success(bytes)
@@ -371,7 +377,7 @@ func OtherOperation(stub shim.ChaincodeStubInterface, t *db.DbManager, collectio
 		if len(args) > 1 {
 			keys = args[1:]
 		}
-		bytes,err := t.GetStateByPartialCompositeKey(stub, collection, objectType, keys); if err != nil {
+		bytes,err := t.GetStateByPartialCompositeKey(collection, objectType, keys); if err != nil {
 			return shim.Error(err.Error())
 		}
 		return shim.Success(bytes)

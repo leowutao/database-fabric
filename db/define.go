@@ -1,7 +1,10 @@
 package db
 
-type DbManager struct {
+import "github.com/hyperledger/fabric/core/chaincode/shim"
 
+type DbManager struct {
+	ChainCodeStub shim.ChaincodeStubInterface
+	CacheData map[string][]byte
 }
 
 type DataType int8

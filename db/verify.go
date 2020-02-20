@@ -2,7 +2,6 @@ package db
 
 import (
 	"fmt"
-	"github.com/hyperledger/fabric/core/chaincode/shim"
 )
 
 func (t *DbManager) verifyColumn(columns []Column, k string, table string, path string) (Column,error) {
@@ -32,24 +31,24 @@ func (t *DbManager) verifyColumnData(primaryKey PrimaryKey, column Column, value
 	return data,nil
 }
 
-func (t *DbManager) verifyForeignKeys(stub shim.ChaincodeStubInterface, foreignKeys []ForeignKey, column Column, value interface{}) error {
+func (t *DbManager) verifyForeignKeys(foreignKeys []ForeignKey, column Column, value interface{}) error {
 	match,foreignKey := t.MatchForeignKeyByKey(foreignKeys, column.Name)
 	if value != nil && match {
 		idValue,_ := t.ConvertString(value)
-		if err := t.validateRowIsNotNull(stub, foreignKey.Reference.Table, idValue); err != nil {
+		if err := t.validateRowIsNotNull(foreignKey.Reference.Table, idValue); err != nil {
 			return fmt.Errorf("foreignKey `%s` data `%s` not exists in table `%s`", column.Name, idValue, foreignKey.Reference.Table)
 		}
 	}
 	return nil
 }
 
-func (t *DbManager) verifyReferenceByDelRow(stub shim.ChaincodeStubInterface, table Table, id string) error {
-	foreignKey,err := t.getForeignKeyByReference(stub, table.Name, table.PrimaryKey.Column); if err != nil {
+func (t *DbManager) verifyReferenceByDelRow(table Table, id string) error {
+	foreignKey,err := t.getForeignKeyByReference(table.Name, table.PrimaryKey.Column); if err != nil {
 		return err
 	}
 
 	if foreignKey.ForeignKey.Table != "" {
-		idValue,err := t.getRowIdByIndex(stub, foreignKey.ForeignKey.Table, foreignKey.ForeignKey.Column, id); if err != nil {
+		idValue,err := t.getRowIdByIndex(foreignKey.ForeignKey.Table, foreignKey.ForeignKey.Column, id); if err != nil {
 			return err
 		}
 		if idValue != "" {
@@ -60,8 +59,8 @@ func (t *DbManager) verifyReferenceByDelRow(stub shim.ChaincodeStubInterface, ta
 	return nil
 }
 
-func (t *DbManager) verifyReferenceByDelTable(stub shim.ChaincodeStubInterface, table Table) error {
-	foreignKey,err := t.getForeignKeyByReference(stub, table.Name, table.PrimaryKey.Column); if err != nil {
+func (t *DbManager) verifyReferenceByDelTable(table Table) error {
+	foreignKey,err := t.getForeignKeyByReference(table.Name, table.PrimaryKey.Column); if err != nil {
 		return err
 	}
 
@@ -71,10 +70,10 @@ func (t *DbManager) verifyReferenceByDelTable(stub shim.ChaincodeStubInterface, 
 	return nil
 }
 
-func (t *DbManager) verifyReferenceBySetTable(stub shim.ChaincodeStubInterface, table Table) ([]ReferenceForeignKey,[]ReferenceForeignKey,error) {
+func (t *DbManager) verifyReferenceBySetTable(table Table) ([]ReferenceForeignKey,[]ReferenceForeignKey,error) {
 	var addForeignKeys []ReferenceForeignKey
 	var deleteForeignKeys []ReferenceForeignKey
-	oldTable,err := t.QueryTable(stub, table.Name); if err != nil {
+	oldTable,err := t.QueryTable(table.Name); if err != nil {
 		return addForeignKeys,deleteForeignKeys,err
 	}
 	if oldTable.Name != "" {
@@ -104,8 +103,8 @@ func (t *DbManager) verifyReferenceBySetTable(stub shim.ChaincodeStubInterface, 
 	return addForeignKeys,deleteForeignKeys,nil
 }
 
-func (t *DbManager) validateTableExists(stub shim.ChaincodeStubInterface, tableName string) error {
-	bytes,err := t.getTableDataByFilter(stub, tableName,true)
+func (t *DbManager) validateTableExists(tableName string) error {
+	bytes,err := t.getTableDataByFilter(tableName,true)
 	if err != nil {
 		return err
 	}
@@ -115,8 +114,8 @@ func (t *DbManager) validateTableExists(stub shim.ChaincodeStubInterface, tableN
 	return nil
 }
 
-func (t *DbManager) validateTableNotExists(stub shim.ChaincodeStubInterface, tableName string) error {
-	bytes,err := t.getTableDataByFilter(stub, tableName,true)
+func (t *DbManager) validateTableNotExists(tableName string) error {
+	bytes,err := t.getTableDataByFilter(tableName,true)
 	if err != nil {
 		return err
 	}
@@ -126,8 +125,8 @@ func (t *DbManager) validateTableNotExists(stub shim.ChaincodeStubInterface, tab
 	return nil
 }
 
-func (t *DbManager) validateQueryTableIsNotNull(stub shim.ChaincodeStubInterface, tableName string) (Table,error) {
-	data,err := t.QueryTable(stub, tableName)
+func (t *DbManager) validateQueryTableIsNotNull(tableName string) (Table,error) {
+	data,err := t.QueryTable(tableName)
 	if err != nil {
 		return data,err
 	}
@@ -138,8 +137,8 @@ func (t *DbManager) validateQueryTableIsNotNull(stub shim.ChaincodeStubInterface
 	return data,nil
 }
 
-func (t *DbManager) validateRowExists(stub shim.ChaincodeStubInterface, tableName string, id string) ([]byte,error) {
-	bytes,err := t.getRowDataByFilter(stub, tableName, id,true)
+func (t *DbManager) validateRowExists(tableName string, id string) ([]byte,error) {
+	bytes,err := t.getRowDataByFilter(tableName, id,true)
 	if err != nil {
 		return nil,err
 	}
@@ -149,8 +148,8 @@ func (t *DbManager) validateRowExists(stub shim.ChaincodeStubInterface, tableNam
 	return bytes,nil
 }
 
-func (t *DbManager) validateRowNotExists(stub shim.ChaincodeStubInterface, tableName string, id string) error {
-	bytes,err := t.getRowDataByFilter(stub, tableName, id,true)
+func (t *DbManager) validateRowNotExists(tableName string, id string) error {
+	bytes,err := t.getRowDataByFilter(tableName, id,true)
 	if err != nil {
 		return err
 	}
@@ -160,8 +159,8 @@ func (t *DbManager) validateRowNotExists(stub shim.ChaincodeStubInterface, table
 	return nil
 }
 
-func (t *DbManager) validateRowIsNotNull(stub shim.ChaincodeStubInterface, tableName string, id string) error {
-	bytes,err := t.getRowData(stub, tableName, id)
+func (t *DbManager) validateRowIsNotNull(tableName string, id string) error {
+	bytes,err := t.getRowData(tableName, id)
 	if err != nil {
 		return err
 	}
@@ -171,8 +170,8 @@ func (t *DbManager) validateRowIsNotNull(stub shim.ChaincodeStubInterface, table
 	return nil
 }
 
-func (t *DbManager) validateRowIsNull(stub shim.ChaincodeStubInterface, tableName string, id string) error {
-	bytes,err := t.getRowData(stub, tableName, id)
+func (t *DbManager) validateRowIsNull(tableName string, id string) error {
+	bytes,err := t.getRowData(tableName, id)
 	if err != nil {
 		return err
 	}
@@ -182,8 +181,8 @@ func (t *DbManager) validateRowIsNull(stub shim.ChaincodeStubInterface, tableNam
 	return nil
 }
 
-func (t *DbManager) validateSchemaExists(stub shim.ChaincodeStubInterface, schemaName string) error {
-	bytes,err := t.getSchemaDataByFilter(stub, schemaName,true)
+func (t *DbManager) validateSchemaExists(schemaName string) error {
+	bytes,err := t.getSchemaDataByFilter(schemaName,true)
 	if err != nil {
 		return err
 	}
@@ -193,8 +192,8 @@ func (t *DbManager) validateSchemaExists(stub shim.ChaincodeStubInterface, schem
 	return nil
 }
 
-func (t *DbManager) validateSchemaNotExists(stub shim.ChaincodeStubInterface, schemaName string) error {
-	bytes,err := t.getSchemaDataByFilter(stub, schemaName,true)
+func (t *DbManager) validateSchemaNotExists(schemaName string) error {
+	bytes,err := t.getSchemaDataByFilter(schemaName,true)
 	if err != nil {
 		return err
 	}
@@ -204,8 +203,8 @@ func (t *DbManager) validateSchemaNotExists(stub shim.ChaincodeStubInterface, sc
 	return nil
 }
 
-func (t *DbManager) validateQuerySchemaIsNotNull(stub shim.ChaincodeStubInterface, schemaName string) (Schema,error) {
-	data,err := t.querySchema(stub, schemaName)
+func (t *DbManager) validateQuerySchemaIsNotNull(schemaName string) (Schema,error) {
+	data,err := t.querySchema(schemaName)
 	if err != nil {
 		return data,err
 	}
@@ -216,16 +215,16 @@ func (t *DbManager) validateQuerySchemaIsNotNull(stub shim.ChaincodeStubInterfac
 	return data,nil
 }
 
-func (t *DbManager) verifyRow(stub shim.ChaincodeStubInterface, table Table, id string, row map[string]interface{}, op OpType) (string,string,map[string]interface{},error) {
+func (t *DbManager) verifyRow(table Table, id string, row map[string]interface{}, op OpType) (string,string,map[string]interface{},error) {
 	idKey := ""
 	idValue := ""
 	tableName := table.Name
 	newRow := map[string]interface{}{}
 	if op == UPDATE {
-		version,err := t.validateRowExists(stub, tableName, id); if err != nil {
+		version,err := t.validateRowExists(tableName, id); if err != nil {
 			return idKey,idValue,newRow,err
 		}
-		oldRow,err := t.queryRowByVersion(stub, tableName, id, version); if err != nil {
+		oldRow,err := t.queryRowByVersion(tableName, id, version); if err != nil {
 			return idKey,idValue,newRow,err
 		}
 
@@ -262,7 +261,7 @@ func (t *DbManager) verifyRow(stub shim.ChaincodeStubInterface, table Table, id 
 		newRow[k] = value
 
 		if len(table.ForeignKeys) > 0 {
-			err = t.verifyForeignKeys(stub, table.ForeignKeys, column, value); if err != nil {
+			err = t.verifyForeignKeys(table.ForeignKeys, column, value); if err != nil {
 				return idKey,idValue,newRow,err
 			}
 		}
@@ -270,7 +269,7 @@ func (t *DbManager) verifyRow(stub shim.ChaincodeStubInterface, table Table, id 
 
 	if op == ADD {
 		idKey,idValue = t.getTablePrimaryKey(table, newRow)
-		err := t.validateRowNotExists(stub, tableName, idValue); if err != nil {
+		err := t.validateRowNotExists(tableName, idValue); if err != nil {
 			return idKey,idValue,newRow,err
 		}
 		if table.PrimaryKey.AutoIncrement {
@@ -281,7 +280,7 @@ func (t *DbManager) verifyRow(stub shim.ChaincodeStubInterface, table Table, id 
 			if rowId > 0 {
 				idValue = t.Int64ToString(rowId)
 			}else{
-				autoId,err := t.autoIncrement(stub, tableName)
+				autoId,err := t.autoIncrement(tableName)
 				if err != nil {
 					return idKey,idValue,newRow,err
 				}

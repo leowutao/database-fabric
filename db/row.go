@@ -3,7 +3,6 @@ package db
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/hyperledger/fabric/core/chaincode/shim"
 )
 
 type TableRow struct {
@@ -12,7 +11,7 @@ type TableRow struct {
 }
 
 ////////////////// Public Function //////////////////
-func (t *DbManager) AddRowByJson(stub shim.ChaincodeStubInterface, tableName string, rowJson string) ([]string,error) {
+func (t *DbManager) AddRowByJson(tableName string, rowJson string) ([]string,error) {
 	if tableName == "" {
 		return nil,fmt.Errorf("tableName is null")
 	}
@@ -28,10 +27,10 @@ func (t *DbManager) AddRowByJson(stub shim.ChaincodeStubInterface, tableName str
 		rows = append(rows, TableRow{"",row})
 	}
 
-	return t.SetRow(stub, tableName, rows, ADD)
+	return t.SetRow(tableName, rows, ADD)
 }
 
-func (t *DbManager) UpdateRowByJson(stub shim.ChaincodeStubInterface, tableName string, rowJson string) ([]string,error) {
+func (t *DbManager) UpdateRowByJson(tableName string, rowJson string) ([]string,error) {
 	if tableName == "" {
 		return nil,fmt.Errorf("tableName is null")
 	}
@@ -49,12 +48,12 @@ func (t *DbManager) UpdateRowByJson(stub shim.ChaincodeStubInterface, tableName 
 		}
 	}
 
-	return t.SetRow(stub, tableName, rows, UPDATE)
+	return t.SetRow(tableName, rows, UPDATE)
 }
 
-func (t *DbManager) SetRow(stub shim.ChaincodeStubInterface, tableName string, rows []TableRow, op OpType) ([]string,error) {
+func (t *DbManager) SetRow(tableName string, rows []TableRow, op OpType) ([]string,error) {
 	var ids []string
-	table,err := t.validateQueryTableIsNotNull(stub, tableName); if err != nil {
+	table,err := t.validateQueryTableIsNotNull(tableName); if err != nil {
 		return nil,err
 	}
 
@@ -66,10 +65,10 @@ func (t *DbManager) SetRow(stub shim.ChaincodeStubInterface, tableName string, r
 			return nil,fmt.Errorf("tableRow rowId is null")
 		}
 
-		idKey,idValue,row,err := t.verifyRow(stub, table, tableRow.Id, tableRow.Row, op); if err != nil {
+		idKey,idValue,row,err := t.verifyRow(table, tableRow.Id, tableRow.Row, op); if err != nil {
 			return nil,err
 		}
-		if err := t.putRow(stub, table, idKey, idValue, row, op); err != nil {
+		if err := t.putRow(table, idKey, idValue, row, op); err != nil {
 			return nil,err
 		}
 		ids = append(ids, idValue)
@@ -78,18 +77,18 @@ func (t *DbManager) SetRow(stub shim.ChaincodeStubInterface, tableName string, r
 	return ids,nil
 }
 
-func (t *DbManager) DelRowById(stub shim.ChaincodeStubInterface, tableName string, id string) error {
+func (t *DbManager) DelRowById(tableName string, id string) error {
 	if tableName == "" {
 		return fmt.Errorf("tableName is null")
 	}
 	if id == "" {
 		return fmt.Errorf("id is null")
 	}
-	table,err := t.validateQueryTableIsNotNull(stub, tableName); if err != nil {
+	table,err := t.validateQueryTableIsNotNull(tableName); if err != nil {
 		return err
 	}
 
-	row,err := t.queryRow(stub, tableName, id); if err != nil {
+	row,err := t.queryRow(tableName, id); if err != nil {
 		return err
 	}
 
@@ -97,15 +96,15 @@ func (t *DbManager) DelRowById(stub shim.ChaincodeStubInterface, tableName strin
 		return fmt.Errorf("row is null")
 	}
 
-	return t.delRow(stub, table, id)
+	return t.delRow(table, id)
 }
 
-func (t *DbManager) QueryRowBytes(stub shim.ChaincodeStubInterface, tableName string, id string) ([]byte,error) {
-	return t.getRowData(stub, tableName, id)
+func (t *DbManager) QueryRowBytes(tableName string, id string) ([]byte,error) {
+	return t.getRowData(tableName, id)
 }
 
-func (t *DbManager) QueryRowWithPaginationBytes(stub shim.ChaincodeStubInterface, tableName string, id string, pageSize int32) ([]byte,error) {
-	pagination,err := t.queryRowWithPagination(stub, tableName, id, pageSize); if err != nil {
+func (t *DbManager) QueryRowWithPaginationBytes(tableName string, id string, pageSize int32) ([]byte,error) {
+	pagination,err := t.queryRowWithPagination(tableName, id, pageSize); if err != nil {
 		return nil,err
 	}
 	paginationBytes,err := t.ConvertJsonBytes(pagination); if err != nil {
@@ -114,9 +113,9 @@ func (t *DbManager) QueryRowWithPaginationBytes(stub shim.ChaincodeStubInterface
 	return paginationBytes,nil
 }
 
-func (t *DbManager) QueryRowDemo(stub shim.ChaincodeStubInterface, tableName string) (map[string]interface{},error) {
+func (t *DbManager) QueryRowDemo(tableName string) (map[string]interface{},error) {
 	row := map[string]interface{}{}
-	table,err := t.QueryTable(stub, tableName)
+	table,err := t.QueryTable(tableName)
 	if err != nil {
 		return row,err
 	}
@@ -131,14 +130,14 @@ func (t *DbManager) QueryRowDemo(stub shim.ChaincodeStubInterface, tableName str
 
 ////////////////// Private Function //////////////////
 
-func (t *DbManager) putRow(stub shim.ChaincodeStubInterface, table Table, idKey string, idValue string, row map[string]interface{}, op OpType) error {
+func (t *DbManager) putRow(table Table, idKey string, idValue string, row map[string]interface{}, op OpType) error {
 	id,err := t.ConvertString(row[idKey])
 	if op == ADD || (op == UPDATE && id != "" && id != idValue) {
 		var increment int64
 		if table.PrimaryKey.AutoIncrement {
 			increment = row[idKey].(int64)
 		}
-		if err := t.setTableTally(stub, table.Name, increment, op); err != nil {
+		if err := t.setTableTally(table.Name, increment, op); err != nil {
 			return err
 		}
 	}
@@ -146,27 +145,27 @@ func (t *DbManager) putRow(stub shim.ChaincodeStubInterface, table Table, idKey 
 	value,err := t.ConvertJsonBytes(row); if err != nil {
 		return err
 	}
-	if err := t.putRowData(stub, table.Name, idValue, value); err != nil {
+	if err := t.putRowData(table.Name, idValue, value); err != nil {
 		return err
 	}
 
-	if err := t.putForeignKeyIndex(stub, table, idValue, row); err != nil {
+	if err := t.putForeignKeyIndex(table, idValue, row); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (t *DbManager) autoIncrement(stub shim.ChaincodeStubInterface, tableName string) (int64,error) {
-	id,err :=  t.getTableIncrement(stub, tableName); if err != nil {
+func (t *DbManager) autoIncrement(tableName string) (int64,error) {
+	id,err :=  t.getTableIncrement(tableName); if err != nil {
 		return id,err
 	}
 	id = id + 1
 	return id,nil
 }
 
-func (t *DbManager) queryRow(stub shim.ChaincodeStubInterface, tableName string, id string) (map[string]interface{},error) {
+func (t *DbManager) queryRow(tableName string, id string) (map[string]interface{},error) {
 	row := map[string]interface{}{}
-	rowBytes,err := t.getRowData(stub, tableName, id)
+	rowBytes,err := t.getRowData(tableName, id)
 	if err != nil {
 		return row,err
 	}
@@ -179,9 +178,9 @@ func (t *DbManager) queryRow(stub shim.ChaincodeStubInterface, tableName string,
 	return row,nil
 }
 
-func (t *DbManager) queryRowByVersion(stub shim.ChaincodeStubInterface, tableName string, id string, version []byte) (map[string]interface{},error) {
+func (t *DbManager) queryRowByVersion(tableName string, id string, version []byte) (map[string]interface{},error) {
 	row := map[string]interface{}{}
-	rowBytes,err := t.getRowDataByVersion(stub, tableName, id, version)
+	rowBytes,err := t.getRowDataByVersion(tableName, id, version)
 	if err != nil {
 		return row,err
 	}
@@ -194,10 +193,10 @@ func (t *DbManager) queryRowByVersion(stub shim.ChaincodeStubInterface, tableNam
 	return row,nil
 }
 
-func (t *DbManager) queryRowWithPagination(stub shim.ChaincodeStubInterface, tableName string, id string, pageSize int32) (Pagination,error) {
+func (t *DbManager) queryRowWithPagination(tableName string, id string, pageSize int32) (Pagination,error) {
 	pagination := Pagination{}
 	var rows []interface{}
-	rowsBytes,err := t.getRowDataByRange(stub, tableName, id, pageSize); if err != nil {
+	rowsBytes,err := t.getRowDataByRange(tableName, id, pageSize); if err != nil {
 		return pagination,err
 	}
 	if len(rowsBytes) > 0 {
@@ -212,32 +211,32 @@ func (t *DbManager) queryRowWithPagination(stub shim.ChaincodeStubInterface, tab
 			}
 		}
 	}
-	count,err := t.getTableCount(stub, tableName); if err != nil {
+	count,err := t.getTableCount(tableName); if err != nil {
 		return pagination,err
 	}
 	return t.Pagination(pageSize, count, rows),nil
 }
 
-func (t *DbManager) delRowByObj(stub shim.ChaincodeStubInterface, tableName string, row map[string]interface{}) error {
-	table,err := t.validateQueryTableIsNotNull(stub, tableName); if err != nil {
+func (t *DbManager) delRowByObj(tableName string, row map[string]interface{}) error {
+	table,err := t.validateQueryTableIsNotNull(tableName); if err != nil {
 		return err
 	}
 	_,id := t.getTablePrimaryKey(table, row)
-	return t.delRow(stub, table, id)
+	return t.delRow(table, id)
 }
 
-func (t *DbManager) delRow(stub shim.ChaincodeStubInterface, table Table, id string) error {
-	err := t.verifyReferenceByDelRow(stub, table, id); if err != nil {
+func (t *DbManager) delRow(table Table, id string) error {
+	err := t.verifyReferenceByDelRow(table, id); if err != nil {
 		return err
 	}
 
-	//err = t.DelForeignKeyIndex(stub, table, row); if err != nil {
+	//err = t.DelForeignKeyIndex(table, row); if err != nil {
 	//	return err
 	//}
 
-	if err := t.setTableTally(stub, table.Name,0, DELETE); err != nil {
+	if err := t.setTableTally(table.Name,0, DELETE); err != nil {
 		return err
 	}
 
-	return t.delRowData(stub, table.Name, id)
+	return t.delRowData(table.Name, id)
 }

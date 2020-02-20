@@ -3,7 +3,6 @@ package db
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/hyperledger/fabric/core/chaincode/shim"
 	"reflect"
 )
 
@@ -35,7 +34,7 @@ type RecursionData struct {
 }
 
 ////////////////// Public Function //////////////////
-func (t *DbManager) AddSchemaByJson(stub shim.ChaincodeStubInterface, schemaJson string) (string,error) {
+func (t *DbManager) AddSchemaByJson(schemaJson string) (string,error) {
 	if schemaJson == "" {
 		return "",fmt.Errorf("schemaJson is null")
 	}
@@ -46,13 +45,13 @@ func (t *DbManager) AddSchemaByJson(stub shim.ChaincodeStubInterface, schemaJson
 	if schema.Name == "" {
 		return "",fmt.Errorf("name is null")
 	}
-	if err := t.validateSchemaNotExists(stub, schema.Name); err != nil {
+	if err := t.validateSchemaNotExists(schema.Name); err != nil {
 		return "",err
 	}
-	return schema.Name,t.setSchema(stub, schema)
+	return schema.Name,t.setSchema(schema)
 }
 
-func (t *DbManager) UpdateSchemaByJson(stub shim.ChaincodeStubInterface, schemaJson string) (string,error) {
+func (t *DbManager) UpdateSchemaByJson(schemaJson string) (string,error) {
 	if schemaJson == "" {
 		return "",fmt.Errorf("schemaJson is null")
 	}
@@ -63,24 +62,24 @@ func (t *DbManager) UpdateSchemaByJson(stub shim.ChaincodeStubInterface, schemaJ
 	if schema.Name == "" {
 		return "",fmt.Errorf("name is null")
 	}
-	if err := t.validateSchemaExists(stub, schema.Name); err != nil {
+	if err := t.validateSchemaExists(schema.Name); err != nil {
 		return "",err
 	}
-	return schema.Name,t.setSchema(stub, schema)
+	return schema.Name,t.setSchema(schema)
 }
 
-func (t *DbManager) QuerySchemaBytes(stub shim.ChaincodeStubInterface, schemaName string) ([]byte,error) {
-	return t.getSchemaData(stub, schemaName)
+func (t *DbManager) QuerySchemaBytes(schemaName string) ([]byte,error) {
+	return t.getSchemaData(schemaName)
 }
 
-func (t *DbManager) QueryAllSchemaNameBytes(stub shim.ChaincodeStubInterface) ([]byte,error) {
-	tables,err := t.getAllSchemaKey(stub); if err != nil {
+func (t *DbManager) QueryAllSchemaNameBytes() ([]byte,error) {
+	tables,err := t.getAllSchemaKey(); if err != nil {
 		return nil,err
 	}
 	return t.ConvertJsonBytes(tables)
 }
 
-func (t *DbManager) AddSchemaRowByJson(stub shim.ChaincodeStubInterface, schemaName string, dataJson string) ([]string,[]Row,error) {
+func (t *DbManager) AddSchemaRowByJson(schemaName string, dataJson string) ([]string,[]Row,error) {
 	var ids []string
 	var rows []Row
 	var err error
@@ -94,10 +93,10 @@ func (t *DbManager) AddSchemaRowByJson(stub shim.ChaincodeStubInterface, schemaN
 	if err = json.Unmarshal([]byte(dataJson), &data); err != nil {
 		return ids,rows,err
 	}
-	return t.setSchemaRow(stub, schemaName,"", data, ADD)
+	return t.setSchemaRow(schemaName,"", data, ADD)
 }
 
-func (t *DbManager) UpdateSchemaRowByJson(stub shim.ChaincodeStubInterface, schemaName string, id string, dataJson string) ([]string,[]Row,error) {
+func (t *DbManager) UpdateSchemaRowByJson(schemaName string, id string, dataJson string) ([]string,[]Row,error) {
 	var ids []string
 	var rows []Row
 	var err error
@@ -114,38 +113,38 @@ func (t *DbManager) UpdateSchemaRowByJson(stub shim.ChaincodeStubInterface, sche
 	if err = json.Unmarshal([]byte(dataJson), &data); err != nil {
 		return ids,rows,err
 	}
-	return t.setSchemaRow(stub, schemaName, id, data, UPDATE)
+	return t.setSchemaRow(schemaName, id, data, UPDATE)
 }
 
-func (t *DbManager) DelSchema(stub shim.ChaincodeStubInterface, schemaName string) error {
+func (t *DbManager) DelSchema(schemaName string) error {
 	if schemaName == "" {
 		return fmt.Errorf("schemaName is null")
 	}
-	_,err := t.validateQuerySchemaIsNotNull(stub, schemaName)
+	_,err := t.validateQuerySchemaIsNotNull(schemaName)
 	if err != nil {
 		return err
 	}
-	return t.delSchemaData(stub, schemaName)
+	return t.delSchemaData(schemaName)
 }
 
-func (t *DbManager) DelSchemaRow(stub shim.ChaincodeStubInterface, schemaName string, id string) (map[string][]map[string]interface{},error) {
+func (t *DbManager) DelSchemaRow(schemaName string, id string) (map[string][]map[string]interface{},error) {
 	if schemaName == "" {
 		return nil,fmt.Errorf("schemaName is null")
 	}
 	if id == "" {
 		return nil,fmt.Errorf("id is null")
 	}
-	schema,err := t.validateQuerySchemaIsNotNull(stub, schemaName)
+	schema,err := t.validateQuerySchemaIsNotNull(schemaName)
 	if err != nil {
 		return nil,err
 	}
-	_,tableRows,err := t.recursionModelQueryRow(stub, schema.LayerNum, 0, RecursionData{"",schema.Model.Table,id,nil,schema.Model})
+	_,tableRows,err := t.recursionModelQueryRow(schema.LayerNum, 0, RecursionData{"",schema.Model.Table,id,nil,schema.Model})
 	if err != nil {
 		return tableRows,err
 	}
 	for table,rows := range tableRows {
 		for _,row := range rows {
-			err := t.delRowByObj(stub, table, row); if err != nil {
+			err := t.delRowByObj(table, row); if err != nil {
 				return tableRows,err
 			}
 		}
@@ -153,20 +152,20 @@ func (t *DbManager) DelSchemaRow(stub shim.ChaincodeStubInterface, schemaName st
 	return tableRows,nil
 }
 
-func (t *DbManager)QuerySchemaRowByWithPaginationBytes(stub shim.ChaincodeStubInterface, schemaName string, id string, pageSize int32) ([]byte,error) {
-	pagination,err := t.querySchemaRowByWithPagination(stub, schemaName, id, pageSize); if err != nil {
+func (t *DbManager)QuerySchemaRowByWithPaginationBytes(schemaName string, id string, pageSize int32) ([]byte,error) {
+	pagination,err := t.querySchemaRowByWithPagination(schemaName, id, pageSize); if err != nil {
 		return nil,err
 	}
 	return t.ConvertJsonBytes(pagination)
 }
 
-func (t *DbManager) QuerySchemaRowDemo(stub shim.ChaincodeStubInterface, schemaName string) (interface{},error) {
-	schema,err := t.validateQuerySchemaIsNotNull(stub, schemaName)
+func (t *DbManager) QuerySchemaRowDemo(schemaName string) (interface{},error) {
+	schema,err := t.validateQuerySchemaIsNotNull(schemaName)
 	if err != nil {
 		return nil,err
 	}
 
-	row,_,err := t.recursionModelQueryRow(stub, schema.LayerNum, 0, RecursionData{"",schema.Model.Table,"",nil,schema.Model})
+	row,_,err := t.recursionModelQueryRow(schema.LayerNum, 0, RecursionData{"",schema.Model.Table,"",nil,schema.Model})
 	if err != nil {
 		return row,err
 	}
@@ -174,28 +173,28 @@ func (t *DbManager) QuerySchemaRowDemo(stub shim.ChaincodeStubInterface, schemaN
 	return row,nil
 }
 
-func (t *DbManager) QuerySchemaRow(stub shim.ChaincodeStubInterface, schemaName string, id string) (map[string]interface{},error) {
+func (t *DbManager) QuerySchemaRow(schemaName string, id string) (map[string]interface{},error) {
 	if schemaName == "" {
 		return nil,fmt.Errorf("schemaName is null")
 	}
 	if id == "" {
 		return nil,fmt.Errorf("id is null")
 	}
-	schema,err := t.validateQuerySchemaIsNotNull(stub, schemaName)
+	schema,err := t.validateQuerySchemaIsNotNull(schemaName)
 	if err != nil {
 		return nil,err
 	}
 
-	return t.recursionSchemaRow(stub, schema, id, RecursionData{"",schema.Model.Table,id,nil,schema.Model})
+	return t.recursionSchemaRow(schema, id, RecursionData{"",schema.Model.Table,id,nil,schema.Model})
 }
 
 ////////////////// Private Function //////////////////
-func (t *DbManager) setSchema(stub shim.ChaincodeStubInterface, schema Schema) error {
+func (t *DbManager) setSchema(schema Schema) error {
 	if schema.Name == "" {
 		return fmt.Errorf("name is null")
 	}
 
-	layerNum,err := t.recursionModel(stub,0, schema.Model)
+	layerNum,err := t.recursionModel(0, schema.Model)
 	if err != nil {
 		return err
 	}
@@ -206,14 +205,14 @@ func (t *DbManager) setSchema(stub shim.ChaincodeStubInterface, schema Schema) e
 		return err
 	}
 
-	if err = t.putSchemaData(stub, schema.Name, schemaByte); err != nil {
+	if err = t.putSchemaData(schema.Name, schemaByte); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (t *DbManager) recursionModel(stub shim.ChaincodeStubInterface,layerNum int8, model Model) (int8,error) {
+func (t *DbManager) recursionModel(layerNum int8, model Model) (int8,error) {
 	layerNum++
 	if layerNum > RecursionLayer {
 		return layerNum,fmt.Errorf("model recursion max layerNum `%d`", RecursionLayer)
@@ -227,7 +226,7 @@ func (t *DbManager) recursionModel(stub shim.ChaincodeStubInterface,layerNum int
 	}
 
 	tableName := model.Table
-	if err:= t.validateTableExists(stub, tableName); err !=nil {
+	if err:= t.validateTableExists(tableName); err !=nil {
 		return layerNum,err
 	}
 
@@ -241,14 +240,14 @@ func (t *DbManager) recursionModel(stub shim.ChaincodeStubInterface,layerNum int
 			}
 			modeNames[subModel.Name] = true
 
-			subTable,err := t.validateQueryTableIsNotNull(stub, subModel.Table)
+			subTable,err := t.validateQueryTableIsNotNull(subModel.Table)
 			if err != nil {
 				return layerNum,err
 			}
 			match,_ := t.MatchForeignKeyByTable(subTable.ForeignKeys, tableName); if !match {
 				return layerNum,fmt.Errorf("table `%s` foreignKey not find table `%s` relation", subTable.Name, tableName)
 			}
-			currentLayerNum,err := t.recursionModel(stub, layerNum, subModel)
+			currentLayerNum,err := t.recursionModel(layerNum, subModel)
 			if err != nil {
 				return layerNum,err
 			}
@@ -260,9 +259,9 @@ func (t *DbManager) recursionModel(stub shim.ChaincodeStubInterface,layerNum int
 	}
 	return layerNum,nil
 }
-func (t *DbManager) querySchema(stub shim.ChaincodeStubInterface, schemaName string) (Schema,error) {
+func (t *DbManager) querySchema(schemaName string) (Schema,error) {
 	schema := Schema{}
-	schemaBytes,err := t.getSchemaData(stub, schemaName)
+	schemaBytes,err := t.getSchemaData(schemaName)
 	if err != nil {
 		return schema,err
 	}
@@ -275,17 +274,17 @@ func (t *DbManager) querySchema(stub shim.ChaincodeStubInterface, schemaName str
 	return schema,nil
 }
 
-func (t *DbManager) setSchemaRow(stub shim.ChaincodeStubInterface, schemaName string, id string, data interface{}, op OpType) ([]string,[]Row,error) {
+func (t *DbManager) setSchemaRow(schemaName string, id string, data interface{}, op OpType) ([]string,[]Row,error) {
 	var ids []string
 	var rows []Row
 	var err error
 
-	schema,err := t.validateQuerySchemaIsNotNull(stub, schemaName)
+	schema,err := t.validateQuerySchemaIsNotNull(schemaName)
 	if err != nil {
 		return ids,rows,err
 	}
 
-	schemaRows,err := t.recursionJsonData(stub, schema.LayerNum,0, id, op, RecursionData{"",schema.Model.Table,"",data, schema.Model})
+	schemaRows,err := t.recursionJsonData(schema.LayerNum,0, id, op, RecursionData{"",schema.Model.Table,"",data, schema.Model})
 	if err != nil {
 		return ids,rows,err
 	}
@@ -304,7 +303,7 @@ func (t *DbManager) setSchemaRow(stub shim.ChaincodeStubInterface, schemaName st
 	return ids,rows,err
 }
 
-func (t *DbManager) recursionJsonData(stub shim.ChaincodeStubInterface, schemaLayerNum int8, layerNum int8, id string, op OpType, recursionData RecursionData) ([]SchemaRow,error) {
+func (t *DbManager) recursionJsonData(schemaLayerNum int8, layerNum int8, id string, op OpType, recursionData RecursionData) ([]SchemaRow,error) {
 	prevPath,prevTable,prevId,data,model := recursionData.PrevPath,recursionData.PrevTable,recursionData.PrevId,recursionData.Data,recursionData.Model
 	var rows []SchemaRow
 	layerNum++
@@ -340,7 +339,7 @@ func (t *DbManager) recursionJsonData(stub shim.ChaincodeStubInterface, schemaLa
 		list = append(list, data.(map[string]interface{}))
 	}
 
-	table,err := t.validateQueryTableIsNotNull(stub, model.Table)
+	table,err := t.validateQueryTableIsNotNull(model.Table)
 	if err != nil {
 		return rows,err
 	}
@@ -385,12 +384,12 @@ func (t *DbManager) recursionJsonData(stub shim.ChaincodeStubInterface, schemaLa
 			}
 		}
 
-		idKey,idValue,newRow,err := t.verifyRow(stub, table, id, newRow, op)
+		idKey,idValue,newRow,err := t.verifyRow(table, id, newRow, op)
 		if err != nil {
 			return rows,err
 		}
 
-		if err := t.putRow(stub, table, idKey, idValue, newRow, op); err != nil {
+		if err := t.putRow(table, idKey, idValue, newRow, op); err != nil {
 			return rows,err
 		}
 
@@ -400,7 +399,7 @@ func (t *DbManager) recursionJsonData(stub shim.ChaincodeStubInterface, schemaLa
 			for _,subRecursionData := range subRecursionDataList {
 				subRecursionData.PrevTable = table.Name
 				subRecursionData.PrevId = idValue
-				subSchemaRows,err := t.recursionJsonData(stub, schemaLayerNum, layerNum,"", op, subRecursionData)
+				subSchemaRows,err := t.recursionJsonData(schemaLayerNum, layerNum,"", op, subRecursionData)
 				if err != nil {
 					return rows,err
 				}
@@ -429,19 +428,19 @@ func (t *DbManager) matchModel(models []Model, key string, modelName string) (bo
 
 
 
-func (t *DbManager)querySchemaRowByWithPagination(stub shim.ChaincodeStubInterface, schemaName string, id string, pageSize int32) (Pagination,error) {
+func (t *DbManager)querySchemaRowByWithPagination(schemaName string, id string, pageSize int32) (Pagination,error) {
 	pagination := Pagination{}
-	schema,err := t.validateQuerySchemaIsNotNull(stub, schemaName)
+	schema,err := t.validateQuerySchemaIsNotNull(schemaName)
 	if err != nil {
 		return pagination,err
 	}
 
-	table,err := t.validateQueryTableIsNotNull(stub, schema.Model.Table)
+	table,err := t.validateQueryTableIsNotNull(schema.Model.Table)
 	if err != nil {
 		return pagination,err
 	}
 
-	rowPagination,err := t.queryRowWithPagination(stub, table.Name, id, pageSize); if err !=nil {
+	rowPagination,err := t.queryRowWithPagination(table.Name, id, pageSize); if err !=nil {
 		return pagination,err
 	}
 	var values []interface{}
@@ -450,7 +449,7 @@ func (t *DbManager)querySchemaRowByWithPagination(stub shim.ChaincodeStubInterfa
 		rowId,err := t.ConvertString(row[table.PrimaryKey.Column]); if err !=nil {
 			return pagination,err
 		}
-		data,err := t.recursionSchemaRow(stub, schema, id, RecursionData{"",table.Name,rowId,row,schema.Model})
+		data,err := t.recursionSchemaRow(schema, id, RecursionData{"",table.Name,rowId,row,schema.Model})
 		if err != nil {
 			return pagination,err
 		}
@@ -459,8 +458,8 @@ func (t *DbManager)querySchemaRowByWithPagination(stub shim.ChaincodeStubInterfa
 	return t.Pagination(rowPagination.PageSize, rowPagination.Total, values),nil
 }
 
-func (t *DbManager) recursionSchemaRow(stub shim.ChaincodeStubInterface, schema Schema, id string, recursionData RecursionData) (map[string]interface{},error) {
-	row,_,err := t.recursionModelQueryRow(stub, schema.LayerNum, 0, recursionData)
+func (t *DbManager) recursionSchemaRow(schema Schema, id string, recursionData RecursionData) (map[string]interface{},error) {
+	row,_,err := t.recursionModelQueryRow(schema.LayerNum, 0, recursionData)
 	if err != nil {
 		return nil,err
 	}
@@ -473,7 +472,7 @@ func (t *DbManager) recursionSchemaRow(stub shim.ChaincodeStubInterface, schema 
 	return row.(map[string]interface{}),nil
 }
 
-func (t *DbManager) recursionModelQueryRow(stub shim.ChaincodeStubInterface, schemaLayerNum int8, layerNum int8, recursionData RecursionData) (interface{},map[string][]map[string]interface{},error) {
+func (t *DbManager) recursionModelQueryRow(schemaLayerNum int8, layerNum int8, recursionData RecursionData) (interface{},map[string][]map[string]interface{},error) {
 	prevTable,prevId,model,data := recursionData.PrevTable,recursionData.PrevId,recursionData.Model,recursionData.Data
 	var idValues []string
 	var rows []map[string]interface{}
@@ -491,14 +490,14 @@ func (t *DbManager) recursionModelQueryRow(stub shim.ChaincodeStubInterface, sch
 				}
 				rows = append(rows,  data.(map[string]interface{}))
 			}else{
-				row,err := t.queryRow(stub, model.Table, prevId); if err != nil {
+				row,err := t.queryRow(model.Table, prevId); if err != nil {
 					return nil,nil,err
 				}
 				rows = append(rows, row)
 			}
 			idValues = append(idValues, prevId)
 		}else{
-			table,err := t.validateQueryTableIsNotNull(stub, model.Table)
+			table,err := t.validateQueryTableIsNotNull(model.Table)
 			if err != nil {
 				return nil,nil,err
 			}
@@ -506,11 +505,11 @@ func (t *DbManager) recursionModelQueryRow(stub shim.ChaincodeStubInterface, sch
 				return nil,nil,fmt.Errorf("table `%s` foreignKey not find table `%s` relation", table.Name, prevTable)
 			}
 			if model.IsArray {
-				idValues,rows, err = t.queryRowDataListByIndex(stub, model.Table, foreignKey.Column, prevId); if err != nil {
+				idValues,rows, err = t.queryRowDataListByIndex(model.Table, foreignKey.Column, prevId); if err != nil {
 					return nil,nil,err
 				}
 			}else{
-				idValue,row,err := t.queryRowDataByIndex(stub, model.Table, foreignKey.Column, prevId); if err != nil {
+				idValue,row,err := t.queryRowDataByIndex(model.Table, foreignKey.Column, prevId); if err != nil {
 					return nil,nil,err
 				}
 				idValues = append(idValues, idValue)
@@ -518,7 +517,7 @@ func (t *DbManager) recursionModelQueryRow(stub shim.ChaincodeStubInterface, sch
 			}
 		}
 	}else{
-		row,err := t.QueryRowDemo(stub, model.Table); if err != nil {
+		row,err := t.QueryRowDemo(model.Table); if err != nil {
 			return nil,nil,err
 		}
 		idValues = append(idValues, "")
@@ -535,7 +534,7 @@ func (t *DbManager) recursionModelQueryRow(stub shim.ChaincodeStubInterface, sch
 			}
 			idValue := idValues[i]
 			for _,subModel := range model.Models{
-				subRow,subTableRows,err := t.recursionModelQueryRow(stub, schemaLayerNum, layerNum, RecursionData{"",model.Table,idValue,nil,subModel}); if err != nil {
+				subRow,subTableRows,err := t.recursionModelQueryRow(schemaLayerNum, layerNum, RecursionData{"",model.Table,idValue,nil,subModel}); if err != nil {
 					return nil,nil,err
 				}
 				row[subModel.Name] = subRow

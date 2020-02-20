@@ -2,7 +2,6 @@ package db
 
 import (
 	"encoding/json"
-	"github.com/hyperledger/fabric/core/chaincode/shim"
 )
 
 type HistoryData struct {
@@ -13,24 +12,24 @@ type HistoryData struct {
 }
 
 ////////////////// Public Function //////////////////
-func (t *DbManager) QueryTableHistoryBytes(stub shim.ChaincodeStubInterface, tableName string, pageSize int32) ([]byte,error)  {
-	pagination,err := t.queryTableHistory(stub, tableName, pageSize)
+func (t *DbManager) QueryTableHistoryBytes(tableName string, pageSize int32) ([]byte,error)  {
+	pagination,err := t.queryTableHistory(tableName, pageSize)
 	if err != nil {
 		return nil,err
 	}
 	return t.ConvertJsonBytes(pagination)
 }
 
-func (t *DbManager) QuerySchemaHistoryBytes(stub shim.ChaincodeStubInterface, schemaName string, pageSize int32) ([]byte,error)  {
-	pagination,err := t.querySchemaHistory(stub, schemaName, pageSize)
+func (t *DbManager) QuerySchemaHistoryBytes(schemaName string, pageSize int32) ([]byte,error)  {
+	pagination,err := t.querySchemaHistory(schemaName, pageSize)
 	if err != nil {
 		return nil,err
 	}
 	return t.ConvertJsonBytes(pagination)
 }
 
-func (t *DbManager) QueryRowHistoryBytes(stub shim.ChaincodeStubInterface, tableName string, id string, pageSize int32) ([]byte,error)  {
-	pagination,err := t.queryRowHistory(stub, tableName, id, pageSize)
+func (t *DbManager) QueryRowHistoryBytes(tableName string, id string, pageSize int32) ([]byte,error)  {
+	pagination,err := t.queryRowHistory(tableName, id, pageSize)
 	if err != nil {
 		return nil,err
 	}
@@ -54,10 +53,10 @@ func (t *DbManager) getHistoryList(historyBytes [][]byte) ([]History,error) {
 	return values,nil
 }
 
-func (t *DbManager) queryTableHistory(stub shim.ChaincodeStubInterface, tableName string, pageSize int32) (Pagination,error) {
+func (t *DbManager) queryTableHistory(tableName string, pageSize int32) (Pagination,error) {
 	pagination := Pagination{}
 	var values []interface{}
-	historyBytes,err := t.getTableDataHistory(stub, tableName, pageSize)
+	historyBytes,err := t.getTableDataHistory(tableName, pageSize)
 	if err != nil {
 		return pagination,err
 	}
@@ -76,13 +75,13 @@ func (t *DbManager) queryTableHistory(stub shim.ChaincodeStubInterface, tableNam
 		values = append(values, HistoryData{v.Op,v.TxID,v.Timestamp,table})
 	}
 
-	return t.Pagination(pageSize, t.getTableDataHistoryTotal(stub, tableName), values),nil
+	return t.Pagination(pageSize, t.getTableDataHistoryTotal(tableName), values),nil
 }
 
-func (t *DbManager) querySchemaHistory(stub shim.ChaincodeStubInterface, schemaName string, pageSize int32) (Pagination,error) {
+func (t *DbManager) querySchemaHistory(schemaName string, pageSize int32) (Pagination,error) {
 	pagination := Pagination{}
 	var values []interface{}
-	historyBytes,err := t.getSchemaDataHistory(stub, schemaName, pageSize)
+	historyBytes,err := t.getSchemaDataHistory(schemaName, pageSize)
 	if err != nil {
 		return pagination,err
 	}
@@ -101,13 +100,13 @@ func (t *DbManager) querySchemaHistory(stub shim.ChaincodeStubInterface, schemaN
 		values = append(values, HistoryData{v.Op,v.TxID,v.Timestamp,schema})
 	}
 
-	return t.Pagination(pageSize, t.getSchemaDataHistoryTotal(stub, schemaName), values),nil
+	return t.Pagination(pageSize, t.getSchemaDataHistoryTotal(schemaName), values),nil
 }
 
-func (t *DbManager) queryRowHistory(stub shim.ChaincodeStubInterface, tableName string, id string, pageSize int32) (Pagination,error) {
+func (t *DbManager) queryRowHistory(tableName string, id string, pageSize int32) (Pagination,error) {
 	pagination := Pagination{}
 	var values []interface{}
-	historyBytes,err := t.getRowDataHistory(stub, tableName, id, pageSize)
+	historyBytes,err := t.getRowDataHistory(tableName, id, pageSize)
 	if err != nil {
 		return pagination,err
 	}
@@ -125,5 +124,5 @@ func (t *DbManager) queryRowHistory(stub shim.ChaincodeStubInterface, tableName 
 		values = append(values, HistoryData{v.Op,v.TxID,v.Timestamp,row})
 	}
 
-	return t.Pagination(pageSize, t.getRowDataHistoryTotal(stub, tableName, id), values),nil
+	return t.Pagination(pageSize, t.getRowDataHistoryTotal(tableName, id), values),nil
 }

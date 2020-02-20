@@ -3,12 +3,10 @@ package db
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/hyperledger/fabric/core/chaincode/shim"
-	//"github.com/hyperledger/fabric/common/attrmgr"
 )
 
 ////////////////// Public Function //////////////////
-func (t *DbManager) AddTableByJson(stub shim.ChaincodeStubInterface, tableJson string) (string,error) {
+func (t *DbManager) AddTableByJson(tableJson string) (string,error) {
 	if tableJson == "" {
 		return "",fmt.Errorf("tableJson is null")
 	}
@@ -19,13 +17,13 @@ func (t *DbManager) AddTableByJson(stub shim.ChaincodeStubInterface, tableJson s
 	if table.Name == "" {
 		return "",fmt.Errorf("name is null")
 	}
-	if err := t.validateTableNotExists(stub, table.Name); err != nil {
+	if err := t.validateTableNotExists(table.Name); err != nil {
 		return "",err
 	}
-	return table.Name,t.setTable(stub, table)
+	return table.Name,t.setTable(table)
 }
 
-func (t *DbManager) UpdateTableByJson(stub shim.ChaincodeStubInterface, tableJson string) (string,error) {
+func (t *DbManager) UpdateTableByJson(tableJson string) (string,error) {
 	if tableJson == "" {
 		return "",fmt.Errorf("tableJson is null")
 	}
@@ -36,45 +34,45 @@ func (t *DbManager) UpdateTableByJson(stub shim.ChaincodeStubInterface, tableJso
 	if table.Name == "" {
 		return "",fmt.Errorf("name is null")
 	}
-	if err := t.validateTableExists(stub, table.Name); err != nil {
+	if err := t.validateTableExists(table.Name); err != nil {
 		return "",err
 	}
-	return table.Name,t.setTable(stub, table)
+	return table.Name,t.setTable(table)
 }
 
-func (t *DbManager) DelTable(stub shim.ChaincodeStubInterface, tableName string) error {
+func (t *DbManager) DelTable(tableName string) error {
 	if tableName == "" {
 		return fmt.Errorf("tableName is null")
 	}
-	table,err := t.validateQueryTableIsNotNull(stub, tableName); if err != nil {
+	table,err := t.validateQueryTableIsNotNull(tableName); if err != nil {
 		return err
 	}
 
-	err = t.verifyReferenceByDelTable(stub, table); if err != nil {
+	err = t.verifyReferenceByDelTable(table); if err != nil {
 		return err
 	}
 
-	err = t.delTableData(stub, tableName); if err != nil {
+	err = t.delTableData(tableName); if err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (t *DbManager) QueryTableBytes(stub shim.ChaincodeStubInterface, tableName string) ([]byte,error) {
-	return t.getTableData(stub, tableName)
+func (t *DbManager) QueryTableBytes(tableName string) ([]byte,error) {
+	return t.getTableData(tableName)
 }
 
-func (t *DbManager) QueryAllTableNameBytes(stub shim.ChaincodeStubInterface) ([]byte,error) {
-	tables,err := t.getAllTableKey(stub); if err != nil {
+func (t *DbManager) QueryAllTableNameBytes() ([]byte,error) {
+	tables,err := t.getAllTableKey(); if err != nil {
 		return nil,err
 	}
 	return t.ConvertJsonBytes(tables)
 }
 
-func (t *DbManager) QueryTable(stub shim.ChaincodeStubInterface, tableName string) (Table,error) {
+func (t *DbManager) QueryTable(tableName string) (Table,error) {
 	table := Table{}
-	tableBytes,err := t.getTableData(stub, tableName)
+	tableBytes,err := t.getTableData(tableName)
 	if err != nil {
 		return table,err
 	}
@@ -88,7 +86,7 @@ func (t *DbManager) QueryTable(stub shim.ChaincodeStubInterface, tableName strin
 }
 
 ////////////////// Private Function /////////////////
-func (t *DbManager) setTable(stub shim.ChaincodeStubInterface, table Table) error {
+func (t *DbManager) setTable(table Table) error {
 	if table.Name == "" {
 		return fmt.Errorf("name is null")
 	}
@@ -123,7 +121,7 @@ func (t *DbManager) setTable(stub shim.ChaincodeStubInterface, table Table) erro
 			_,err := t.verifyColumn(table.Columns, key, table.Name, key); if err != nil {
 				return fmt.Errorf("foreignKey key `%s` not found in columns", key)
 			}
-			relationTable,err := t.validateQueryTableIsNotNull(stub, foreignKey.Reference.Table); if err != nil {
+			relationTable,err := t.validateQueryTableIsNotNull(foreignKey.Reference.Table); if err != nil {
 				return err
 			}
 			match,relationForeignKey := t.MatchForeignKeyByTable(relationTable.ForeignKeys, table.Name); if match {
@@ -148,30 +146,30 @@ func (t *DbManager) setTable(stub shim.ChaincodeStubInterface, table Table) erro
 		return err
 	}
 
-	if err = t.setForeignKey(stub, table); err != nil {
+	if err = t.setForeignKey(table); err != nil {
 		return err
 	}
 
-	if err = t.putTableData(stub, table.Name, tableByte); err != nil {
+	if err = t.putTableData(table.Name, tableByte); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (t *DbManager) setForeignKey(stub shim.ChaincodeStubInterface, table Table) error {
-	addForeignKeys,deleteForeignKeys,err := t.verifyReferenceBySetTable(stub, table); if err != nil {
+func (t *DbManager) setForeignKey(table Table) error {
+	addForeignKeys,deleteForeignKeys,err := t.verifyReferenceBySetTable(table); if err != nil {
 		return err
 	}
 
 	for _,foreignKey := range addForeignKeys {
-		if err = t.putForeignKey(stub, foreignKey); err != nil {
+		if err = t.putForeignKey(foreignKey); err != nil {
 			return err
 		}
 	}
 
 	for _,foreignKey := range deleteForeignKeys {
-		if err = t.delForeignKey(stub, foreignKey); err != nil {
+		if err = t.delForeignKey(foreignKey); err != nil {
 			return err
 		}
 	}
@@ -186,8 +184,8 @@ func (t *DbManager) getTablePrimaryKey(table Table, row map[string]interface{}) 
 	return primaryKey,primaryValue
 }
 
-func (t *DbManager) setTableTally(stub shim.ChaincodeStubInterface, tableName string, increment int64, op OpType) error {
-	tableTally,err := t.getTableTally(stub, tableName); if err != nil {
+func (t *DbManager) setTableTally(tableName string, increment int64, op OpType) error {
+	tableTally,err := t.getTableTally(tableName); if err != nil {
 		return err
 	}
 	if op == ADD {
@@ -205,12 +203,12 @@ func (t *DbManager) setTableTally(stub shim.ChaincodeStubInterface, tableName st
 	value,err := t.ConvertJsonBytes(tableTally); if err != nil {
 		return err
 	}
-	return t.putTallyData(stub, tableName, value)
+	return t.putTallyData(tableName, value)
 }
 
-func (t *DbManager) getTableTally(stub shim.ChaincodeStubInterface, tableName string) (TableTally,error) {
-	tableTally := TableTally{}
-	value,err := t.getTallyData(stub, tableName); if err != nil {
+func (t *DbManager) getTableTally(tableName string) (TableTally,error) {
+	tableTally := TableTally{0,0}
+	value,err := t.getTallyData(tableName); if err != nil {
 		return tableTally,err
 	}
 	if len(value) > 0 {
@@ -221,16 +219,16 @@ func (t *DbManager) getTableTally(stub shim.ChaincodeStubInterface, tableName st
 	return tableTally,nil
 }
 
-func (t *DbManager) getTableIncrement(stub shim.ChaincodeStubInterface, tableName string) (int64,error) {
-	tableTally,err := t.getTableTally(stub, tableName); if err != nil {
+func (t *DbManager) getTableIncrement(tableName string) (int64,error) {
+	tableTally,err := t.getTableTally(tableName); if err != nil {
 		return 0,err
 	}
 
 	return tableTally.Increment,nil
 }
 
-func (t *DbManager) getTableCount(stub shim.ChaincodeStubInterface, tableName string) (int64,error) {
-	tableTally,err := t.getTableTally(stub, tableName); if err != nil {
+func (t *DbManager) getTableCount(tableName string) (int64,error) {
+	tableTally,err := t.getTableTally(tableName); if err != nil {
 		return 0,err
 	}
 	return tableTally.Count,nil
