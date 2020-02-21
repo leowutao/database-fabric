@@ -22,6 +22,7 @@ const  (
 
 type TestChaincodeStub struct {
 	Data map[string]map[string][]byte
+	PutData map[string]map[string][]byte
 	Args []string
 	txIdNum int64
 
@@ -171,13 +172,13 @@ func (stub *TestChaincodeStub) PutState(key string, value []byte) error {
 	if key == "" {
 		return fmt.Errorf("key must not be an empty string")
 	}
-	if stub.Data == nil {
-		stub.Data = map[string]map[string][]byte{}
+	if stub.PutData == nil {
+		stub.PutData = map[string]map[string][]byte{}
 	}
-	if stub.Data[DEFAULT_COLLECTION] == nil {
-		stub.Data[DEFAULT_COLLECTION] = map[string][]byte{}
+	if stub.PutData[DEFAULT_COLLECTION] == nil {
+		stub.PutData[DEFAULT_COLLECTION] = map[string][]byte{}
 	}
-	stub.Data[DEFAULT_COLLECTION][key] = value
+	stub.PutData[DEFAULT_COLLECTION][key] = value
 	return nil
 }
 
@@ -276,13 +277,13 @@ func (stub *TestChaincodeStub) PutPrivateData(collection string, key string, val
 	if key == "" {
 		return fmt.Errorf("key must not be an empty string")
 	}
-	if stub.Data == nil {
-		stub.Data = map[string]map[string][]byte{}
+	if stub.PutData == nil {
+		stub.PutData = map[string]map[string][]byte{}
 	}
-	if stub.Data[collection] == nil {
-		stub.Data[collection] = map[string][]byte{}
+	if stub.PutData[collection] == nil {
+		stub.PutData[collection] = map[string][]byte{}
 	}
-	stub.Data[collection][key] = value
+	stub.PutData[collection][key] = value
 	return nil
 }
 
@@ -469,4 +470,15 @@ func createStateQueryIterator(response []map[string][]byte) *StateQueryIterator 
 		txid:       "",
 		response:   response,
 		currentLoc: 0}}
+}
+
+func (stub *TestChaincodeStub) MergePutData(){
+	if stub.PutData != nil && len(stub.PutData) > 0 {
+		if stub.Data == nil {
+			stub.Data =  map[string]map[string][]byte{}
+		}
+		for k,v := range stub.PutData {
+			stub.Data[k] = v
+		}
+	}
 }

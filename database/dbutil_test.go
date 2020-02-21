@@ -6,6 +6,7 @@ import (
 	"gitee.com/bidpoc/database-fabric-cc/db"
 	"gitee.com/bidpoc/database-fabric-cc/test"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
+	pb "github.com/hyperledger/fabric/protos/peer"
 	"testing"
 )
 
@@ -102,9 +103,7 @@ func TestDb(t *testing.T){
 		stub.Transient = map[string][]byte{TABLEJSON:[]byte(table)}
 		stub.TxID = GetTxID()
 		response := Invoke(stub)
-		if response.Status != shim.OK {
-			panic(response.Message)
-		}
+		TransactionCommit(stub, response)
 	}
 
 	// all table
@@ -112,9 +111,7 @@ func TestDb(t *testing.T){
 		stub.Args = []string{"all", collectionKey, "table"}
 		stub.TxID = GetTxID()
 		response := Invoke(stub)
-		if response.Status != shim.OK {
-			panic(response.Message)
-		}
+		TransactionCommit(stub, response)
 		var allTables []string
 		err := json.Unmarshal(response.Payload, &allTables); if err != nil {
 			panic(err)
@@ -164,9 +161,7 @@ func TestDb(t *testing.T){
 			stub.Transient = map[string][]byte{ROWJSON:[]byte(rowJson)}
 			stub.TxID = GetTxID()
 			response := Invoke(stub)
-			if response.Status != shim.OK {
-				panic(response.Message)
-			}
+			TransactionCommit(stub, response)
 		}
 	}
 
@@ -178,9 +173,7 @@ func TestDb(t *testing.T){
 					stub.Args = []string{"get", collectionKey, "table", tableName}
 					stub.TxID = GetTxID()
 					response := Invoke(stub)
-					if response.Status != shim.OK {
-						panic(response.Message)
-					}
+					TransactionCommit(stub, response)
 					var table db.Table
 					err := json.Unmarshal(response.Payload, &table); if err != nil {
 						panic(err)
@@ -192,9 +185,7 @@ func TestDb(t *testing.T){
 						stub.Args = []string{"get", collectionKey, "tableRow", tableName, id, "1"}
 						stub.TxID = GetTxID()
 						response := Invoke(stub)
-						if response.Status != shim.OK {
-							panic(response.Message)
-						}
+						TransactionCommit(stub, response)
 						var pagination db.Pagination
 						err := json.Unmarshal(response.Payload, &pagination); if err != nil {
 						panic(err)
@@ -228,9 +219,7 @@ func TestDb(t *testing.T){
 		stub.Transient = map[string][]byte{SCHEMAJSON:[]byte(schema)}
 		stub.TxID = GetTxID()
 		response := Invoke(stub)
-		if response.Status != shim.OK {
-			panic(response.Message)
-		}
+		TransactionCommit(stub, response)
 	}
 
 	// all schema
@@ -238,9 +227,7 @@ func TestDb(t *testing.T){
 		stub.Args = []string{"all", collectionKey, "schema"}
 		stub.TxID = GetTxID()
 		response := Invoke(stub)
-		if response.Status != shim.OK {
-			panic(response.Message)
-		}
+		TransactionCommit(stub, response)
 		var allSchemas []string
 		err := json.Unmarshal(response.Payload, &allSchemas); if err != nil {
 			panic(err)
@@ -257,9 +244,7 @@ func TestDb(t *testing.T){
 		stub.Transient = map[string][]byte{ROWJSON:[]byte(addSchemaRow)}
 		stub.TxID = GetTxID()
 		response := Invoke(stub)
-		if response.Status != shim.OK {
-			panic(response.Message)
-		}
+		TransactionCommit(stub, response)
 		var schemaRowIds []string
 		err := json.Unmarshal(response.Payload, &schemaRowIds); if err != nil {
 			panic(err)
@@ -270,9 +255,7 @@ func TestDb(t *testing.T){
 			stub.Args = []string{"get", collectionKey, "schemaRow", schemaName, schemaRowIds[0], "1"}
 			stub.TxID = GetTxID()
 			response := Invoke(stub)
-			if response.Status != shim.OK {
-				panic(response.Message)
-			}
+			TransactionCommit(stub, response)
 			var pagination db.Pagination
 			err := json.Unmarshal(response.Payload, &pagination); if err != nil {
 				panic(err)
@@ -296,9 +279,7 @@ func TestDb(t *testing.T){
 				stub.Transient = map[string][]byte{ROWJSON:updateSchemaRowBytes}
 				stub.TxID = GetTxID()
 				response := Invoke(stub)
-				if response.Status != shim.OK {
-					panic(response.Message)
-				}
+				TransactionCommit(stub, response)
 			}
 		}
 
@@ -311,9 +292,7 @@ func TestDb(t *testing.T){
 						stub.Args = []string{"get", collectionKey, "table", tableName}
 						stub.TxID = GetTxID()
 						response := Invoke(stub)
-						if response.Status != shim.OK {
-							panic(response.Message)
-						}
+						TransactionCommit(stub, response)
 						var table db.Table
 						err := json.Unmarshal(response.Payload, &table); if err != nil {
 							panic(err)
@@ -322,9 +301,7 @@ func TestDb(t *testing.T){
 							stub.Args = []string{"get", collectionKey, "tableRow", tableName, "", ""}
 							stub.TxID = GetTxID()
 							response := Invoke(stub)
-							if response.Status != shim.OK {
-								panic(response.Message)
-							}
+							TransactionCommit(stub, response)
 							var pagination db.Pagination
 							err := json.Unmarshal(response.Payload, &pagination); if err != nil {
 								panic(err)
@@ -336,18 +313,14 @@ func TestDb(t *testing.T){
 								stub.Args = []string{"delete", collectionKey, "tableRow", tableName, id}
 								stub.TxID = GetTxID()
 								response := Invoke(stub)
-								if response.Status != shim.OK {
-									panic(response.Message)
-								}
+								TransactionCommit(stub, response)
 								delRowIds[tableName] = append(delRowIds[tableName], id)
 							}
 							{
 								stub.Args = []string{"get", collectionKey, "tableRow", tableName, id, "1"}
 								stub.TxID = GetTxID()
 								response := Invoke(stub)
-								if response.Status != shim.OK {
-									panic(response.Message)
-								}
+								TransactionCommit(stub, response)
 								var pagination2 db.Pagination
 								err := json.Unmarshal(response.Payload, &pagination2); if err != nil {
 									panic(err)
@@ -367,9 +340,7 @@ func TestDb(t *testing.T){
 			stub.Args = []string{"get", collectionKey, "schema", schemaName}
 			stub.TxID = GetTxID()
 			response := Invoke(stub)
-			if response.Status != shim.OK {
-				panic(response.Message)
-			}
+			TransactionCommit(stub, response)
 			var schema db.Schema
 			err := json.Unmarshal(response.Payload, &schema); if err != nil {
 				panic(err)
@@ -378,9 +349,7 @@ func TestDb(t *testing.T){
 				stub.Args = []string{"get", collectionKey, "table", schema.Model.Table}
 				stub.TxID = GetTxID()
 				response := Invoke(stub)
-				if response.Status != shim.OK {
-					panic(response.Message)
-				}
+				TransactionCommit(stub, response)
 				var table db.Table
 				err := json.Unmarshal(response.Payload, &table); if err != nil {
 					panic(err)
@@ -389,9 +358,7 @@ func TestDb(t *testing.T){
 					stub.Args = []string{"get", collectionKey, "schemaRow", schemaName, "", ""}
 					stub.TxID = GetTxID()
 					response := Invoke(stub)
-					if response.Status != shim.OK {
-						panic(response.Message)
-					}
+					TransactionCommit(stub, response)
 					var pagination db.Pagination
 					err := json.Unmarshal(response.Payload, &pagination); if err != nil {
 						panic(err)
@@ -404,18 +371,14 @@ func TestDb(t *testing.T){
 						stub.Args = []string{"delete", collectionKey, "schemaRow", schemaName, id}
 						stub.TxID = GetTxID()
 						response := Invoke(stub)
-						if response.Status != shim.OK {
-							panic(response.Message)
-						}
+						TransactionCommit(stub, response)
 						delRowIds[schema.Model.Table] = append(delRowIds[schema.Model.Table], id)
 					}
 					{
 						stub.Args = []string{"get", collectionKey, "schemaRow", schemaName, id, "1"}
 						stub.TxID = GetTxID()
 						response := Invoke(stub)
-						if response.Status != shim.OK {
-							panic(response.Message)
-						}
+						TransactionCommit(stub, response)
 						var pagination2 db.Pagination
 						err := json.Unmarshal(response.Payload, &pagination2); if err != nil {
 							panic(err)
@@ -439,9 +402,7 @@ func TestDb(t *testing.T){
 							stub.Args = []string{"get", collectionKey, "tableRow", subTableName, id, "1"}
 							stub.TxID = GetTxID()
 							response := Invoke(stub)
-							if response.Status != shim.OK {
-								panic(response.Message)
-							}
+							TransactionCommit(stub, response)
 							var pagination db.Pagination
 							err := json.Unmarshal(response.Payload, &pagination); if err != nil {
 								panic(err)
@@ -460,16 +421,12 @@ func TestDb(t *testing.T){
 			stub.Args = []string{"delete", collectionKey, "schema", schemaName}
 			stub.TxID = GetTxID()
 			response := Invoke(stub)
-			if response.Status != shim.OK {
-				panic(response.Message)
-			}
+			TransactionCommit(stub, response)
 			{
 				stub.Args = []string{"get", collectionKey, "schema", schemaName}
 				stub.TxID = GetTxID()
 				response := Invoke(stub)
-				if response.Status != shim.OK {
-					panic(response.Message)
-				}
+				TransactionCommit(stub, response)
 				if len(response.Payload) > 0{
 					panic("delete schema error")
 				}
@@ -483,16 +440,12 @@ func TestDb(t *testing.T){
 					stub.Args = []string{"delete", collectionKey, "table", tableName}
 					stub.TxID = GetTxID()
 					response := Invoke(stub)
-					if response.Status != shim.OK {
-						panic(response.Message)
-					}
+					TransactionCommit(stub, response)
 					{
 						stub.Args = []string{"get", collectionKey, "table", tableName}
 						stub.TxID = GetTxID()
 						response := Invoke(stub)
-						if response.Status != shim.OK {
-							panic(response.Message)
-						}
+						TransactionCommit(stub, response)
 						if len(response.Payload) > 0{
 							panic("delete table error")
 						}
@@ -506,9 +459,7 @@ func TestDb(t *testing.T){
 			stub.Args = []string{"history", collectionKey, "schema", schemaName, ""}
 			stub.TxID = GetTxID()
 			response := Invoke(stub)
-			if response.Status != shim.OK {
-				panic(response.Message)
-			}
+			TransactionCommit(stub, response)
 			var pagination db.Pagination
 			err := json.Unmarshal(response.Payload, &pagination); if err != nil {
 				panic(err)
@@ -525,9 +476,7 @@ func TestDb(t *testing.T){
 					stub.Args = []string{"history", collectionKey, "table", tableName, ""}
 					stub.TxID = GetTxID()
 					response := Invoke(stub)
-					if response.Status != shim.OK {
-						panic(response.Message)
-					}
+					TransactionCommit(stub, response)
 					var pagination db.Pagination
 					err := json.Unmarshal(response.Payload, &pagination); if err != nil {
 						panic(err)
@@ -552,9 +501,7 @@ func TestDb(t *testing.T){
 							stub.Args = []string{"history", collectionKey, "tableRow", tableName, id, ""}
 							stub.TxID = GetTxID()
 							response := Invoke(stub)
-							if response.Status != shim.OK {
-								panic(response.Message)
-							}
+							TransactionCommit(stub, response)
 							var pagination db.Pagination
 							err := json.Unmarshal(response.Payload, &pagination);
 							if err != nil {
@@ -569,6 +516,13 @@ func TestDb(t *testing.T){
 			}
 		}
 	}
+}
+
+func TransactionCommit(stub *test.TestChaincodeStub, response pb.Response){
+	if response.Status != shim.OK {
+		panic(response.Message)
+	}
+	stub.MergePutData()
 }
 
 var TXID_NUM = 0000
