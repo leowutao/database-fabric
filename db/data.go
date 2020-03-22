@@ -20,6 +20,9 @@ const (
 
 	//RowIndexCompositeKey = "TABLE~COLUMN~VALUE~ID"
 	//ForeignKeyCompositeKey = "REFERENCE{TABLE~COLUMN}~FOREIGN_KEY{TABLE~COLUMN}"
+
+	BPTreeHeadPrefix = "TREE_INDEX_H-"
+	BPTreeNodePrefix = "TREE_INDEX_N-"
 )
 
 func (t *DbManager) getAllTableData() ([][]byte,error) {
@@ -158,6 +161,32 @@ func (t *DbManager) getTallyData(key string) ([]byte,error) {
 
 func (t *DbManager) putTallyData(key string, value []byte) error {
 	return t.putOrDelKey(t.prefixAddKey(TallyPrefix, key), value, Set)
+}
+
+/////////////////// B+Tree Index Operation ///////////////////
+
+func (t *DbManager) getBPTreeHeadPrefix(table string, column string) string {
+	return t.prefixAddKey(BPTreeHeadPrefix, t.compositeKey(table, column))
+}
+
+func (t *DbManager) putBPTreeHead(table string, column string, value []byte) error {
+	return t.putOrDelKey(t.getBPTreeHeadPrefix(table, column), value, Set)
+}
+
+func (t *DbManager) getBPTreeHead(table string, column string) ([]byte,error) {
+	return t.getKey(t.getBPTreeHeadPrefix(table, column))
+}
+
+func (t *DbManager) getBPTreeNodePrefix(table string, column string, pointer string) string {
+	return t.prefixAddKey(BPTreeNodePrefix, t.compositeKey(table, column, pointer))
+}
+
+func (t *DbManager) putBPTreeNode(table string, column string, pointer string, value []byte) error {
+	return t.putOrDelKey(t.getBPTreeNodePrefix(table, column, pointer), value, Set)
+}
+
+func (t *DbManager) getBPTreeNode(table string, column string, pointer string) ([]byte,error) {
+	return t.getKey(t.getBPTreeNodePrefix(table, column, pointer))
 }
 
 /////////////////// Index Operation ///////////////////

@@ -13,6 +13,47 @@ import (
 func TestDb(t *testing.T){
 	var dbManager = new(db.DbManager)
 	var stub = new(test.TestChaincodeStub)
+	dbManager.ChainCodeStub = stub
+	dbManager.CacheData = map[string][]byte{}
+
+	//bd := dbManager.Int32ToByte(int32(10000))
+	//key1 := []byte{}
+	//key := [][]byte{}
+	//for i:=0;i<200;i++ {
+	//	key = append(key, bd)
+	//	key1 = append(key1,111)
+	//}
+	//value := [][]byte{[]byte{1}}
+	//b,_ := dbManager.ConvertJsonBytes(key)
+	//a,_ := dbManager.ConvertJsonBytes(value)
+	//fmt.Println(len(b))
+	//fmt.Println(len(a))
+	//
+	//node := db.TreeNode{1,2,1,1,key,key}
+	//n,_ := dbManager.ConvertJsonBytes(node)
+	//fmt.Println(len(n))
+	//
+	//k,_ := dbManager.ConvertJsonBytes(key1)
+	//fmt.Println(len(k))
+
+	table := "ShoppingCart"
+	column := "userId"
+	for i:=int8(1);i<=100;i++ {
+		key := []byte{byte(i)}
+		value := []byte{1}
+		if err := dbManager.Insert(table, column, key, value, db.InsertTypeDefault); err != nil {
+			panic(err.Error())
+		}
+	}
+	str,err := dbManager.Print(table, column); if err != nil {
+		panic(err.Error())
+	}
+
+	for _,k := range str {
+		fmt.Println(k)
+	}
+
+	return
 
 	collectionKey := "collection_org1"
 	collection_category_collectioncategory := "{\"name\":\"collection_category_collectioncategory\",\"columns\":[" +

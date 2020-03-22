@@ -119,6 +119,21 @@ func (t *DbManager) BoolToString(value bool) string {
 	return strconv.FormatBool(value)
 }
 
+func (t *DbManager) ByteToInt32(value []byte) int32 {
+	var int32Value int32 = 0
+	if len(value) > 0 {
+		getBuf := bytes.NewBuffer(value)
+		binary.Read(getBuf, binary.BigEndian, &int32Value)
+	}
+	return int32Value
+}
+
+func (t *DbManager) Int32ToByte(value int32) []byte {
+	putBuf := bytes .NewBuffer([]byte{})
+	binary.Write(putBuf, binary.BigEndian, value)
+	return putBuf.Bytes()
+}
+
 func (t *DbManager) StringToInt64(value string) (int64,error) {
 	if len(value) > 0 {
 		int64Value,err := strconv.ParseInt(value,10,64); if err != nil {
@@ -147,6 +162,7 @@ func (t *DbManager) Int64ToByte(value int64) []byte {
 	binary.Write(putBuf, binary.BigEndian, value)
 	return putBuf.Bytes()
 }
+
 
 func (t *DbManager) ConvertInt64(vType string, value interface{}) (int64,error) {
 	var data int64

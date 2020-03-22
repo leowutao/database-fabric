@@ -188,7 +188,7 @@ func (t *DbManager) compositeKey(keys... string) string {
 
 func (t *DbManager) getCollectionKey() (string,error) {
 	parameters := t.getParameters()
-	if len(parameters) < 0 {
+	if parameters == nil || len(parameters) == 0 {
 		return "",nil
 	}
 	return parameters[0],nil
