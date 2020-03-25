@@ -1,4 +1,4 @@
-package db
+package util
 
 import (
 	"bytes"
@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"gitee.com/bidpoc/database-fabric-cc/db"
 	"github.com/shopspring/decimal"
 	"net/url"
 	"reflect"
@@ -25,32 +26,32 @@ const (
 	TypeDecimal = "decimal.Decimal"
 )
 
-func (t *DbManager) PageSize(pageSize int32) int32 {
+func PageSize(pageSize int32) int32 {
 	if pageSize == 0 || pageSize > 100 {
 		pageSize = 100
 	}
 	return pageSize
 }
 
-func (t *DbManager) Pagination(pageSize int32, total int64, list []interface{}) Pagination {
-	return Pagination{t.PageSize(pageSize),total,list}
+func Pagination(pageSize int32, total int64, list []interface{}) db.Pagination {
+	return db.Pagination{PageSize(pageSize),total,list}
 }
 
 
-func (t *DbManager) DecryptData(value string) (map[string]interface{},error) {
+func DecryptData(value string) (map[string]interface{},error) {
 	var mapResult map[string]interface{}
-	jsonStr,err := t.DecryptJson(value)
+	jsonStr,err :=DecryptJson(value)
 	if err != nil {
 		return mapResult,err
 	}
-	mapResult,err = t.ConvertMap(jsonStr)
+	mapResult,err =ConvertMap(jsonStr)
 	if err != nil {
 		return mapResult,err
 	}
 	return mapResult,nil
 }
 
-func (t *DbManager) DecryptJson(value string) (string,error) {
+func DecryptJson(value string) (string,error) {
 	var jsonString string
 	decodeBytes, err := base64.StdEncoding.DecodeString(value)
 	if err != nil {
@@ -63,9 +64,9 @@ func (t *DbManager) DecryptJson(value string) (string,error) {
 	return jsonString,nil
 }
 
-func (t *DbManager) EncodeJson(value interface{}) (string,error) {
+func EncodeJson(value interface{}) (string,error) {
 	var jsonString string
-	bytes,err := t.ConvertJsonBytes(value)
+	bytes,err :=ConvertJsonBytes(value)
 	if err != nil {
 		return jsonString,err
 	}
@@ -73,9 +74,9 @@ func (t *DbManager) EncodeJson(value interface{}) (string,error) {
 	return jsonString,nil
 }
 
-func (t *DbManager) ConvertJsonString(value interface{}) (string,error) {
+func ConvertJsonString(value interface{}) (string,error) {
 	jsonString := ""
-	bytes,err := t.ConvertJsonBytes(value)
+	bytes,err :=ConvertJsonBytes(value)
 	if err != nil {
 		return jsonString,err
 	}
@@ -83,11 +84,11 @@ func (t *DbManager) ConvertJsonString(value interface{}) (string,error) {
 	return jsonString,nil
 }
 
-func (t *DbManager) ConvertJsonBytes(value interface{}) ([]byte,error) {
+func ConvertJsonBytes(value interface{}) ([]byte,error) {
 	return json.Marshal(value)
 }
 
-func (t *DbManager) ConvertMap(jsonStr string) (map[string]interface{},error) {
+func ConvertMap(jsonStr string) (map[string]interface{},error) {
 	var mapResult map[string]interface{}
 	err := json.Unmarshal([]byte(jsonStr), &mapResult)
 	if err != nil {
@@ -96,7 +97,7 @@ func (t *DbManager) ConvertMap(jsonStr string) (map[string]interface{},error) {
 	return mapResult,nil
 }
 
-func (t *DbManager) ConvertJsonArrayBytes(values [][]byte) []byte {
+func ConvertJsonArrayBytes(values [][]byte) []byte {
 	var jsonArray [][]byte
 	jsonArray = append(jsonArray, []byte("["))
 	ary := bytes.Join(values, []byte(","))
@@ -105,7 +106,7 @@ func (t *DbManager) ConvertJsonArrayBytes(values [][]byte) []byte {
 	return bytes.Join(jsonArray, []byte{})
 }
 
-func (t *DbManager) StringToBool(value string) (bool,error) {
+func StringToBool(value string) (bool,error) {
 	if len(value) > 0 {
 		boolValue,err := strconv.ParseBool(value); if err != nil {
 			return boolValue,err
@@ -115,11 +116,11 @@ func (t *DbManager) StringToBool(value string) (bool,error) {
 	return false,nil
 }
 
-func (t *DbManager) BoolToString(value bool) string {
+func BoolToString(value bool) string {
 	return strconv.FormatBool(value)
 }
 
-func (t *DbManager) ByteToInt32(value []byte) int32 {
+func ByteToInt32(value []byte) int32 {
 	var int32Value int32 = 0
 	if len(value) > 0 {
 		getBuf := bytes.NewBuffer(value)
@@ -128,13 +129,13 @@ func (t *DbManager) ByteToInt32(value []byte) int32 {
 	return int32Value
 }
 
-func (t *DbManager) Int32ToByte(value int32) []byte {
+func Int32ToByte(value int32) []byte {
 	putBuf := bytes .NewBuffer([]byte{})
 	binary.Write(putBuf, binary.BigEndian, value)
 	return putBuf.Bytes()
 }
 
-func (t *DbManager) StringToInt64(value string) (int64,error) {
+func StringToInt64(value string) (int64,error) {
 	if len(value) > 0 {
 		int64Value,err := strconv.ParseInt(value,10,64); if err != nil {
 			return int64Value,err
@@ -144,11 +145,11 @@ func (t *DbManager) StringToInt64(value string) (int64,error) {
 	return 0,nil
 }
 
-func (t *DbManager) Int64ToString(value int64) string {
+func Int64ToString(value int64) string {
 	return strconv.FormatInt(value, 10)
 }
 
-func (t *DbManager) ByteToInt64(value []byte) int64 {
+func ByteToInt64(value []byte) int64 {
 	var int64Value int64 = 0
 	if len(value) > 0 {
 		getBuf := bytes.NewBuffer(value)
@@ -157,14 +158,14 @@ func (t *DbManager) ByteToInt64(value []byte) int64 {
 	return int64Value
 }
 
-func (t *DbManager) Int64ToByte(value int64) []byte {
+func Int64ToByte(value int64) []byte {
 	putBuf := bytes .NewBuffer([]byte{})
 	binary.Write(putBuf, binary.BigEndian, value)
 	return putBuf.Bytes()
 }
 
 
-func (t *DbManager) ConvertInt64(vType string, value interface{}) (int64,error) {
+func ConvertInt64(vType string, value interface{}) (int64,error) {
 	var data int64
 	var err error
 	switch vType {
@@ -183,7 +184,7 @@ func (t *DbManager) ConvertInt64(vType string, value interface{}) (int64,error) 
 		str := strings.Split(fmt.Sprintf("%v", v), ".")
 		var decimalNum int64 = 0
 		if len(str) == 2 {
-			decimalNum,_ = t.StringToInt64(str[1])
+			decimalNum,_ = StringToInt64(str[1])
 		}
 		data = int64(v)
 		if decimalNum > 0  {
@@ -193,7 +194,7 @@ func (t *DbManager) ConvertInt64(vType string, value interface{}) (int64,error) 
 		if value == "" {
 			data = 0
 		}else{
-			data,err = t.StringToInt64(value.(string)); if err != nil {
+			data,err = StringToInt64(value.(string)); if err != nil {
 				return data, fmt.Errorf("string not convert int64")
 			}
 		}
@@ -203,12 +204,12 @@ func (t *DbManager) ConvertInt64(vType string, value interface{}) (int64,error) 
 	return data,nil
 }
 
-func (t *DbManager) ConvertInt64OrDecimal(vType string, value interface{}) (string,interface{},error) {
+func ConvertInt64OrDecimal(vType string, value interface{}) (string,interface{},error) {
 	var data interface{}
 	var err error
-	data, err = t.ConvertInt64(vType, value); if err != nil {
+	data, err = ConvertInt64(vType, value); if err != nil {
 		if vType == TypeFloat64 {
-			data = t.ConvertDecimalByFloat64(vType, value.(float64))
+			data = ConvertDecimalByFloat64(vType, value.(float64))
 			return TypeDecimal,data,nil
 		}else{
 			return vType,data,err
@@ -217,7 +218,7 @@ func (t *DbManager) ConvertInt64OrDecimal(vType string, value interface{}) (stri
 	return TypeInt64,data,nil
 }
 
-func (t *DbManager) ConvertBool(vType string, value interface{}) (bool,error) {
+func ConvertBool(vType string, value interface{}) (bool,error) {
 	var data bool
 	var err error
 	switch vType {
@@ -227,7 +228,7 @@ func (t *DbManager) ConvertBool(vType string, value interface{}) (bool,error) {
 		if value == "" {
 			data = false
 		}else{
-			data,err = t.StringToBool(value.(string)); if err != nil {
+			data,err =StringToBool(value.(string)); if err != nil {
 				return data, fmt.Errorf("string not convert bool")
 			}
 		}
@@ -237,23 +238,23 @@ func (t *DbManager) ConvertBool(vType string, value interface{}) (bool,error) {
 	return data,nil
 }
 
-func (t *DbManager) ConvertDecimalByFloat64(vType string, value float64) decimal.Decimal {
+func ConvertDecimalByFloat64(vType string, value float64) decimal.Decimal {
 	return decimal.NewFromFloat(value)
 }
 
-func (t *DbManager) ConvertDecimal(vType string, value interface{}) (decimal.Decimal,error) {
+func ConvertDecimal(vType string, value interface{}) (decimal.Decimal,error) {
 	var data decimal.Decimal
 	var err error
 	switch vType {
 	case TypeDecimal:
 		data = value.(decimal.Decimal)
 	case TypeInt,TypeInt8,TypeInt16,TypeInt32,TypeInt64:
-		convertValue, err := t.ConvertInt64(vType, value); if err != nil {
+		convertValue, err :=ConvertInt64(vType, value); if err != nil {
 			return data,fmt.Errorf("`%s` not convert decimal", vType)
 		}
 		data = decimal.NewFromInt(convertValue)
 	case TypeFloat64:
-		data = t.ConvertDecimalByFloat64(vType, value.(float64))
+		data =ConvertDecimalByFloat64(vType, value.(float64))
 	case TypeString:
 		if value == "" {
 			data = decimal.NewFromInt(0)
@@ -268,71 +269,71 @@ func (t *DbManager) ConvertDecimal(vType string, value interface{}) (decimal.Dec
 	return data,nil
 }
 
-func (t *DbManager) ConvertDataType(value interface{}) (DataType,string) {
+func ConvertDataType(value interface{}) (db.DataType,string) {
 	vType := reflect.ValueOf(value).Type().String()
 	switch vType {
 	case TypeInt,TypeInt8,TypeInt16,TypeInt32,TypeInt64,TypeFloat64:
-		return INT,vType
+		return db.INT,vType
 	case TypeString:
-		return VARCHAR,vType
+		return db.VARCHAR,vType
 	case TypeBool:
-		return BOOL,vType
+		return db.BOOL,vType
 	case TypeDecimal:
-		return DECIMAL,vType
+		return db.DECIMAL,vType
 	}
-	return UNDEFINED,vType
+	return db.UNDEFINED,vType
 }
 
-func (t *DbManager) ConvertString(value interface{}) (string,error) {
+func ConvertString(value interface{}) (string,error) {
 	data := ""
 	if value == nil {
 		return data,nil
 	}
-	convertType, vType := t.ConvertDataType(value)
-	if convertType == INT {
-		returnType,value,err := t.ConvertInt64OrDecimal(vType, value); if err != nil {
+	convertType, vType :=ConvertDataType(value)
+	if convertType == db.INT {
+		returnType,value,err :=ConvertInt64OrDecimal(vType, value); if err != nil {
 			return data,err
 		}
 		if returnType == TypeInt64 {
-			data = t.Int64ToString(value.(int64))
+			data =Int64ToString(value.(int64))
 		}else{
 			data = value.(decimal.Decimal).String()
 		}
-	}else if convertType == DECIMAL {
+	}else if convertType == db.DECIMAL {
 		data = value.(decimal.Decimal).String()
-	}else if convertType == VARCHAR {
+	}else if convertType == db.VARCHAR {
 		data = value.(string)
-	}else if convertType == BOOL {
-		data = t.BoolToString(value.(bool))
+	}else if convertType == db.BOOL {
+		data =BoolToString(value.(bool))
 	}else{
 		return data,fmt.Errorf("`%s` not convert string", vType)
 	}
 	return data,nil
 }
 
-func (t *DbManager) ConvertColumnData(column Column, value interface{}) (interface{},error) {
+func ConvertColumnData(column db.Column, value interface{}) (interface{},error) {
 	var data interface{}
 	var err error
 	if value == nil {
 		return nil,nil
 	}
 	columnType := column.Type
-	if columnType == VARCHAR {
-		data, err = t.ConvertString(value); if err != nil {
+	if columnType == db.VARCHAR {
+		data, err =ConvertString(value); if err != nil {
 			return data, fmt.Errorf("column `%s` data `%s` convert string error %s", column.Name, value, err)
 		}
 	} else{
-		convertType, vType := t.ConvertDataType(value)
-		if columnType == BOOL && (convertType == VARCHAR || convertType == BOOL) {
-			data,err = t.ConvertBool(vType, value); if err != nil {
+		convertType, vType :=ConvertDataType(value)
+		if columnType == db.BOOL && (convertType == db.VARCHAR || convertType == db.BOOL) {
+			data,err =ConvertBool(vType, value); if err != nil {
 				return data, fmt.Errorf("column `%s` data `%s` convert bool error %s", column.Name, value, err)
 			}
-		} else if columnType == INT && (convertType == VARCHAR || convertType == INT) {
-			vType,data,err = t.ConvertInt64OrDecimal(vType, value); if vType != TypeInt64 || err != nil {
+		} else if columnType == db.INT && (convertType == db.VARCHAR || convertType == db.INT) {
+			vType,data,err =ConvertInt64OrDecimal(vType, value); if vType != TypeInt64 || err != nil {
 				return data, fmt.Errorf("column `%s` data `%s` convert int64 error %s", column.Name, value, err)
 			}
-		} else if columnType == DECIMAL && (convertType == VARCHAR || convertType == INT || convertType == DECIMAL) {
-			data,err = t.ConvertDecimal(vType, value); if err != nil {
+		} else if columnType == db.DECIMAL && (convertType == db.VARCHAR || convertType == db.INT || convertType == db.DECIMAL) {
+			data,err =ConvertDecimal(vType, value); if err != nil {
 				return data, fmt.Errorf("column `%s` data `%s` convert decimal error %s", column.Name, value, err)
 			}
 		} else {
@@ -340,22 +341,4 @@ func (t *DbManager) ConvertColumnData(column Column, value interface{}) (interfa
 		}
 	}
 	return data,nil
-}
-
-func (t *DbManager) MatchForeignKeyByKey(foreignKeys []ForeignKey, key string) (bool,ForeignKey) {
-	for _,v := range foreignKeys {
-		if v.Column == key {
-			return true,v
-		}
-	}
-	return false,ForeignKey{}
-}
-
-func (t *DbManager) MatchForeignKeyByTable(foreignKeys []ForeignKey, tableName string) (bool,ForeignKey) {
-	for _,v := range foreignKeys {
-		if v.Reference.Table == tableName {
-			return true,v
-		}
-	}
-	return false,ForeignKey{}
 }

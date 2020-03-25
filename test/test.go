@@ -19,65 +19,65 @@ const (
 )
 
 var COLLECTION_TABLE = db.Table{"collection",[]db.Column{
-	{"id",db.INT,"",false,"test"},
-	{"artist",db.VARCHAR,22.2222,true,"test"},
-	{"country",db.VARCHAR,nil,false,"test"},
-	{"covers",db.DECIMAL,1,false,"test"},
-	{"creation_date",db.INT,"221",false,"test"},
-	{"description",db.VARCHAR,"",false,"test"},
-	{"digital_fingerprint",db.VARCHAR,"",false,"test"},
-	{"dimensions",db.VARCHAR,"",false,"test"},
-	{"docs",db.VARCHAR,"",false,"test"},
-	{"is_public",db.BOOL,"",false,"test"},
-	{"location",db.VARCHAR,"",false,"test"},
-	{"medium",db.VARCHAR,"",false,"test"},
-	{"nfc_code",db.VARCHAR,"二进制",true,"test"},
-	{"number",db.VARCHAR,"",false,"test"},
-	{"store_code",db.VARCHAR,"",false,"test"},
-	{"title",db.VARCHAR,"",false,"test"},
-	{"user_uuid",db.VARCHAR,"",false,"test"},
-	{"uuid",db.VARCHAR,"",false,"test"},
-	{"valuation",db.DECIMAL,"424555545455165165.55489881455554488",false,"test"},
-	{"category_id",db.INT,"1",false,"test"},
-},db.PrimaryKey{"id", true},
-[]db.ForeignKey{{"category_id",db.ReferenceKey{"category","id"}}}}
+	{"id", db.INT,"",false,"test"},
+	{"artist", db.VARCHAR,22.2222,true,"test"},
+	{"country", db.VARCHAR,nil,false,"test"},
+	{"covers", db.DECIMAL,1,false,"test"},
+	{"creation_date", db.INT,"221",false,"test"},
+	{"description", db.VARCHAR,"",false,"test"},
+	{"digital_fingerprint", db.VARCHAR,"",false,"test"},
+	{"dimensions", db.VARCHAR,"",false,"test"},
+	{"docs", db.VARCHAR,"",false,"test"},
+	{"is_public", db.BOOL,"",false,"test"},
+	{"location", db.VARCHAR,"",false,"test"},
+	{"medium", db.VARCHAR,"",false,"test"},
+	{"nfc_code", db.VARCHAR,"二进制",true,"test"},
+	{"number", db.VARCHAR,"",false,"test"},
+	{"store_code", db.VARCHAR,"",false,"test"},
+	{"title", db.VARCHAR,"",false,"test"},
+	{"user_uuid", db.VARCHAR,"",false,"test"},
+	{"uuid", db.VARCHAR,"",false,"test"},
+	{"valuation", db.DECIMAL,"424555545455165165.55489881455554488",false,"test"},
+	{"category_id", db.INT,"1",false,"test"},
+}, db.PrimaryKey{"id", true},
+[]db.ForeignKey{{"category_id", db.ReferenceKey{"category","id"}}}}
 
 var CATEGORY_TABLE = db.Table{"category",[]db.Column{
-	{"id",db.INT,"",false,"test"},
-	{"name",db.VARCHAR,"",false,"test"},
-	{"create_at",db.VARCHAR,"",false,"test"},
-	{"update_at",db.VARCHAR,"",false,"test"},
-},db.PrimaryKey{"id", true},[]db.ForeignKey{}}
+	{"id", db.INT,"",false,"test"},
+	{"name", db.VARCHAR,"",false,"test"},
+	{"create_at", db.VARCHAR,"",false,"test"},
+	{"update_at", db.VARCHAR,"",false,"test"},
+}, db.PrimaryKey{"id", true},[]db.ForeignKey{}}
 
 var TEMPLATE_TABLE = db.Table{"template",[]db.Column{
-	{"id",db.INT,"",false,"test"},
-	{"name",db.VARCHAR,"",false,"test"},
-	{"status",db.VARCHAR,"",false,"test"},
-	{"create_at",db.VARCHAR,"",false,"test"},
-	{"update_at",db.VARCHAR,"",false,"test"},
-	{"category_id",db.INT,"1",false,"test"},
-},db.PrimaryKey{"id", true},
-[]db.ForeignKey{{"category_id",db.ReferenceKey{"category", "id"}}}}
+	{"id", db.INT,"",false,"test"},
+	{"name", db.VARCHAR,"",false,"test"},
+	{"status", db.VARCHAR,"",false,"test"},
+	{"create_at", db.VARCHAR,"",false,"test"},
+	{"update_at", db.VARCHAR,"",false,"test"},
+	{"category_id", db.INT,"1",false,"test"},
+}, db.PrimaryKey{"id", true},
+[]db.ForeignKey{{"category_id", db.ReferenceKey{"category", "id"}}}}
 
 var TEMPLATE_DETAIL_TABLE = db.Table{"template_detail",[]db.Column{
-	{"id",db.INT,nil,true,"test"},
-	{"name",db.VARCHAR,"",false,"test"},
-	{"status",db.VARCHAR,"",false,"test"},
-	{"create_at",db.VARCHAR,"",false,"test"},
-	{"update_at",db.VARCHAR,"",false,"test"},
-	{"template_id",db.INT,"1",false,"test"},
-},db.PrimaryKey{"id", true},
-[]db.ForeignKey{{"template_id",db.ReferenceKey{"template", "id"}}}}
+	{"id", db.INT,nil,true,"test"},
+	{"name", db.VARCHAR,"",false,"test"},
+	{"status", db.VARCHAR,"",false,"test"},
+	{"create_at", db.VARCHAR,"",false,"test"},
+	{"update_at", db.VARCHAR,"",false,"test"},
+	{"template_id", db.INT,"1",false,"test"},
+}, db.PrimaryKey{"id", true},
+[]db.ForeignKey{{"template_id", db.ReferenceKey{"template", "id"}}}}
 
 
 var COLLECTION_FIELD_TABLE = db.Table{"collection_field",[]db.Column{
-	{"id",db.INT,"",true,"test"},
-	{"name",db.VARCHAR,"",false,"test"},
-	{"value",db.VARCHAR,"",false,"test"},
-	{"collection_id",db.INT,"1",false,"test"},
-	{"template_detail_id",db.INT,"1",false,"test"},
-},db.PrimaryKey{"id", true},
-[]db.ForeignKey{{"collection_id",db.ReferenceKey{"collection", "id"}},{"template_detail_id",db.ReferenceKey{"template_detail", "id"}}}}
+	{"id", db.INT,"",true,"test"},
+	{"name", db.VARCHAR,"",false,"test"},
+	{"value", db.VARCHAR,"",false,"test"},
+	{"collection_id", db.INT,"1",false,"test"},
+	{"template_detail_id", db.INT,"1",false,"test"},
+}, db.PrimaryKey{"id", true},
+[]db.ForeignKey{{"collection_id", db.ReferenceKey{"collection", "id"}},{"template_detail_id", db.ReferenceKey{"template_detail", "id"}}}}
 
 
 var TABLES = []db.Table{
@@ -88,7 +88,7 @@ var TABLES = []db.Table{
 	COLLECTION_FIELD_TABLE,
 }
 
-var COLLECTION_SCHEMA = db.Schema{ "collection",2, db.Model{
+var COLLECTION_SCHEMA = db.Schema{"collection",2, db.Model{
 	"collection",COLLECTION_TABLE.Name,false,[]db.Model{
 		{"collectionFields",COLLECTION_FIELD_TABLE.Name,true,[]db.Model{}},
 	},

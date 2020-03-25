@@ -1,12 +1,5 @@
 package db
 
-import "github.com/hyperledger/fabric/core/chaincode/shim"
-
-type DbManager struct {
-	ChainCodeStub shim.ChaincodeStubInterface
-	CacheData map[string][]byte
-}
-
 type DataType int8
 const (
 	UNDEFINED DataType = iota

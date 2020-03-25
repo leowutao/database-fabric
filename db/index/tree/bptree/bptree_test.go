@@ -1,16 +1,19 @@
-package db
+package bptree
 
 import (
 	"fmt"
+	"gitee.com/bidpoc/database-fabric-cc/db/index/tree"
+	"gitee.com/bidpoc/database-fabric-cc/db/storage"
+	"gitee.com/bidpoc/database-fabric-cc/db/storage/state"
+	"gitee.com/bidpoc/database-fabric-cc/db/util"
 	"gitee.com/bidpoc/database-fabric-cc/test"
 	"testing"
 )
 
 func TestBPTree(t *testing.T){
-	var dbManager = new(DbManager)
 	var stub = new(test.TestChaincodeStub)
-	dbManager.ChainCodeStub = stub
-	dbManager.CacheData = map[string][]byte{}
+	state := state.NewStateImpl(stub)
+	bPTreeImpl := NewBPTreeImpl(storage.NewBPTreeStorage(state))
 
 	//bd := dbManager.Int32ToByte(int32(10000))
 	//key1 := []byte{}
@@ -35,23 +38,24 @@ func TestBPTree(t *testing.T){
 	table := "ShoppingCart"
 	column := "userId"
 	for i:=int32(1);i<=10;i++ {
-		key := dbManager.Int32ToByte(i)
+		key := util.Int32ToByte(i)
 		value := []byte{1}
-		if err := dbManager.Insert(table, column, key, value, InsertTypeDefault); err != nil {
+		if err := bPTreeImpl.Insert(table, column, key, value, tree.InsertTypeDefault); err != nil {
 			fmt.Println(i)
 			panic(err.Error())
 		}
 	}
 
-	err := dbManager.Print(table, column); if err != nil {
+	err := bPTreeImpl.Print(table, column); if err != nil {
 		panic(err.Error())
 	}
 
-	node,err := dbManager.Search(table, column, dbManager.Int32ToByte(10)); if err != nil {
+	value,vType,err := bPTreeImpl.Search(table, column, util.Int32ToByte(10)); if err != nil {
 		panic(err.Error())
 	}
-	if node != nil {
-		fmt.Println(dbManager.ConvertJsonString(*node))
+	if value != nil {
+		fmt.Println(vType)
+		fmt.Println(util.ConvertJsonString(value))
 	}
 
 	return

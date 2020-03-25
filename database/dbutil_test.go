@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"gitee.com/bidpoc/database-fabric-cc/db"
+	"gitee.com/bidpoc/database-fabric-cc/db/util"
 	"gitee.com/bidpoc/database-fabric-cc/test"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	pb "github.com/hyperledger/fabric/protos/peer"
@@ -11,7 +12,6 @@ import (
 )
 
 func TestDb(t *testing.T){
-	var dbManager = new(db.DbManager)
 	var stub = new(test.TestChaincodeStub)
 	collectionKey := "collection_org1"
 	collection_category_collectioncategory := "{\"name\":\"collection_category_collectioncategory\",\"columns\":[" +
@@ -177,7 +177,7 @@ func TestDb(t *testing.T){
 					err := json.Unmarshal(response.Payload, &table); if err != nil {
 						panic(err)
 					}
-					id,err := dbManager.ConvertString(row[table.PrimaryKey.Column]); if err != nil {
+					id,err := util.ConvertString(row[table.PrimaryKey.Column]); if err != nil {
 						panic(err)
 					}
 					{
@@ -195,7 +195,7 @@ func TestDb(t *testing.T){
 						if !(pagination.List != nil && len(pagination.List) == 1) {
 							panic(fmt.Sprintf("table %s rowId %s count %d!=1 error",tableName,id,len(pagination.List)))
 						}
-						queryId,err := dbManager.ConvertString(pagination.List[0].(map[string]interface{})[table.PrimaryKey.Column]); if err != nil {
+						queryId,err := util.ConvertString(pagination.List[0].(map[string]interface{})[table.PrimaryKey.Column]); if err != nil {
 							panic(err)
 						}
 						if queryId != id {
@@ -270,7 +270,7 @@ func TestDb(t *testing.T){
 			updateSchemaRow := map[string]interface{}{}
 			updateSchemaRow["artist"] = "11"
 			updateSchemaRow["extra_fields"] = extraFields
-			updateSchemaRowBytes,err := dbManager.ConvertJsonBytes(updateSchemaRow); if err != nil {
+			updateSchemaRowBytes,err := util.ConvertJsonBytes(updateSchemaRow); if err != nil {
 				panic(err)
 			}
 			{
@@ -305,7 +305,7 @@ func TestDb(t *testing.T){
 							err := json.Unmarshal(response.Payload, &pagination); if err != nil {
 								panic(err)
 							}
-							id,err := dbManager.ConvertString(pagination.List[0].(map[string]interface{})[table.PrimaryKey.Column]); if err != nil {
+							id,err := util.ConvertString(pagination.List[0].(map[string]interface{})[table.PrimaryKey.Column]); if err != nil {
 								panic(err)
 							}
 							{
@@ -363,7 +363,7 @@ func TestDb(t *testing.T){
 						panic(err)
 					}
 					collection := pagination.List[0].(map[string]interface{})
-					id,err := dbManager.ConvertString(collection[table.PrimaryKey.Column]); if err != nil {
+					id,err := util.ConvertString(collection[table.PrimaryKey.Column]); if err != nil {
 						panic(err)
 					}
 					{
@@ -394,7 +394,7 @@ func TestDb(t *testing.T){
 								subForeignKey = foreignKey.Column
 							}
 						}
-						id,err := dbManager.ConvertString(collection[subForeignKey]); if err != nil {
+						id,err := util.ConvertString(collection[subForeignKey]); if err != nil {
 							panic(err)
 						}
 						{
