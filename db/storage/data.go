@@ -135,7 +135,7 @@ func (storage *TableStorage) GetTableTallyData(table string) ([]byte,error) {
 }
 
 func (storage *TableStorage) PutTableTallyData(table string, value []byte) error {
-	return storage.PutOrDelKey(storage.PrefixAddKey(TallyPrefix, table), value, state.Set)
+	return storage.PutOrDelKey(storage.PrefixAddKey(TallyPrefix, table), value, int8(state.Set))
 }
 
 func (storage *SchemaStorage) GetAllSchemaData() ([][]byte,error) {
@@ -249,7 +249,7 @@ func (storage *BPTreeStorage) GetHeadPrefix(table string, column string) string 
 }
 
 func (storage *BPTreeStorage) PutHead(table string, column string, value []byte) error {
-	return storage.PutOrDelKey(storage.GetHeadPrefix(table, column), value, state.Set)
+	return storage.PutOrDelKey(storage.GetHeadPrefix(table, column), value, int8(state.Set))
 }
 
 func (storage *BPTreeStorage) GetHead(table string, column string) ([]byte,error) {
@@ -261,7 +261,7 @@ func (storage *BPTreeStorage) GetNodePrefix(table string, column string, pointer
 }
 
 func (storage *BPTreeStorage) PutNode(table string, column string, pointer string, value []byte) error {
-	return storage.PutOrDelKey(storage.GetNodePrefix(table, column, pointer), value, state.Set)
+	return storage.PutOrDelKey(storage.GetNodePrefix(table, column, pointer), value, int8(state.Set))
 }
 
 func (storage *BPTreeStorage) GetNode(table string, column string, pointer string) ([]byte,error) {
@@ -292,11 +292,11 @@ func (storage *IndexStorage) PutRowIdIndex(table string, column string, value st
 	jsonBytes,err := util.ConvertJsonBytes(ids); if err !=nil {
 		return err
 	}
-	return storage.PutOrDelKey(storage.PrefixAddKey(RowIndexPrefix, storage.CompositeKey(table, column, value)), jsonBytes, state.Set)
+	return storage.PutOrDelKey(storage.PrefixAddKey(RowIndexPrefix, storage.CompositeKey(table, column, value)), jsonBytes, int8(state.Set))
 }
 
 func (storage *IndexStorage) DelRowIdIndex(table string, column string, value string) error {
-	return storage.PutOrDelKey(storage.PrefixAddKey(RowIndexPrefix, storage.CompositeKey(table, column, value)),nil, state.Del)
+	return storage.PutOrDelKey(storage.PrefixAddKey(RowIndexPrefix, storage.CompositeKey(table, column, value)),nil, int8(state.Del))
 }
 
 func (storage *IndexStorage) GetRowIdByIndex(table string, column string, value string) (string,error) {
@@ -347,12 +347,12 @@ func (storage *IndexStorage) PutForeignKey(foreignKey db.ReferenceForeignKey) er
 	jsonBytes,err := util.ConvertJsonBytes(foreignKey); if err !=nil {
 		return err
 	}
-	return storage.PutOrDelKey(key, jsonBytes, state.Set)
+	return storage.PutOrDelKey(key, jsonBytes, int8(state.Set))
 }
 
 func (storage *IndexStorage) DelForeignKey(foreignKey db.ReferenceForeignKey) error {
 	key := storage.PrefixAddKey(ForeignKeyPrefix, storage.CompositeKey(foreignKey.Reference.Table, foreignKey.Reference.Column))
-	return storage.PutOrDelKey(key,nil, state.Del)
+	return storage.PutOrDelKey(key,nil, int8(state.Del))
 }
 
 func (storage *IndexStorage) GetForeignKey(foreignKey db.ReferenceForeignKey) (db.ReferenceForeignKey,error) {

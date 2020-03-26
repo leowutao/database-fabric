@@ -9,11 +9,11 @@ type ChainCodeState interface {
 	PrefixAddKey(prefix string, key string) string
 	CompositeKey(keys... string) string
 
-	PutOrDelKey(key string, value []byte, op Op) error
+	PutOrDelKey(key string, value []byte, op int8) error
 	GetKey(key string) ([]byte,error)
 	GetCompositeKeyList(objectTypePrefix string, objectType string, prefixKeys []string, keys []string, pageSize int32) ([]string,error)
 
-	PutOrDelData(prefix string, key string, value []byte, op Op) error
+	PutOrDelData(prefix string, key string, value []byte, op int8) error
 	GetDataHistory(objectTypePrefix string, keys []string, pageSize int32) ([][]byte,error)
 
 	GetCompositeKeyData(objectTypePrefix string, objectType string, keys []string, filterVersion bool) ([]byte,error)
