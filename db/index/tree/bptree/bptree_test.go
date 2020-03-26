@@ -37,14 +37,22 @@ func TestBPTree(t *testing.T){
 
 	table := "ShoppingCart"
 	column := "userId"
-	for i:=int32(1);i<=10;i++ {
+	for i:=int32(2);i<=10;i++ {
 		key := util.Int32ToByte(i)
 		value := []byte{1}
 		if err := bPTreeImpl.Insert(table, column, key, value, tree.InsertTypeDefault); err != nil {
 			fmt.Println(i)
 			panic(err.Error())
 		}
+		if i == 10 {
+			i = -1
+			continue
+		}
+		if i == 1{
+			break
+		}
 	}
+
 
 	err := bPTreeImpl.Print(table, column); if err != nil {
 		panic(err.Error())
