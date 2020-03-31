@@ -515,6 +515,8 @@ package database
 //			}
 //		}
 //	}
+//
+//	fmt.Println(util.ConvertJsonString(stub.Data))
 //}
 //
 //func TransactionCommit(stub *test.TestChaincodeStub, response pb.Response){

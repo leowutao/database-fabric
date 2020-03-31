@@ -74,7 +74,7 @@ func (state *StateImpl) PutOrDelData(prefix string, key string, value []byte, op
 	return state.putVersion(collection, state.PrefixAddKey(prefix, key), version)
 }
 
-func (state *StateImpl) PutOrDelCompositeKeyData(objectTypePrefix string, objectType string, attributes []string, value []byte, op Op) error {
+func (state *StateImpl) PutOrDelCompositeKeyData(objectTypePrefix string, objectType string, attributes []string, value []byte, op int8) error {
 	collection,err := state.getCollectionKey()
 	if err != nil {
 		return err
@@ -196,7 +196,7 @@ func (state *StateImpl) getStateQueryIterator(resultsIterator shim.StateQueryIte
 /////////////////// ChainCode State Put and Get ///////////////////
 const HistoryCompositeKey = "HISTORY{KEY}VERSION"
 
-type Op int8
+type Op = int8
 const (
 	Set Op = iota
 	Del
@@ -384,7 +384,7 @@ func (state *StateImpl) putVersion(collection string, key string, versionKey str
 	return state.putData(collection, key, versionBytes)
 }
 
-func (state *StateImpl) putDataHistory(collection string, objectTypePrefix string, attributes []string, value []byte, op Op) (string,error) {
+func (state *StateImpl) putDataHistory(collection string, objectTypePrefix string, attributes []string, value []byte, op int8) (string,error) {
 	versionKey := ""
 	timestamp,err := state.stub.GetTxTimestamp(); if err != nil {
 		return versionKey,err

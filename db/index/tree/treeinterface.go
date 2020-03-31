@@ -1,9 +1,14 @@
 package tree
 
 type TreeInterface interface {
-	Search(table string, column string, key []byte) (interface{},ValueType,error)
+	CreateHead(table string, column string, treeType TreeType) (*TreeHead, error)
 
-	Insert(table string, column string, key []byte, value interface{}, insertType InsertType) error
+	SearchHead(table string, column string) (*TreeHead, error)
 
-	Print(table string, column string) error
+	Search(head *TreeHead, key []byte) ([]byte,error)
+	SearchByRange(head *TreeHead, startKey []byte, endKey []byte, size Pointer) ([]KV, error)
+
+	Insert(head *TreeHead, key []byte, value []byte, insertType InsertType) error
+
+	Print(head *TreeHead, printData bool) error
 }
