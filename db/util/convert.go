@@ -34,7 +34,7 @@ func PageSize(pageSize int32) int32 {
 }
 
 func Pagination(pageSize int32, total int64, list []interface{}) db.Pagination {
-	return db.Pagination{PageSize(pageSize),total,list}
+	return db.Pagination{PageSize:PageSize(pageSize), Total:total, List:list}
 }
 
 
@@ -106,6 +106,35 @@ func ConvertJsonArrayBytes(values [][]byte) []byte {
 	return bytes.Join(jsonArray, []byte{})
 }
 
+//////////////////// String Convert or Parse ////////////////////
+
+func ConvertString(value interface{}) (string,error) {
+	data := ""
+	if value == nil {
+		return data,nil
+	}
+	convertType, vType :=ConvertDataType(value)
+	if convertType == db.INT {
+		returnType,value,err :=ConvertInt64OrDecimal(vType, value); if err != nil {
+			return data,err
+		}
+		if returnType == TypeInt64 {
+			data =Int64ToString(value.(int64))
+		}else{
+			data = DecimalToString(value.(decimal.Decimal))
+		}
+	}else if convertType == db.DECIMAL {
+		data = DecimalToString(value.(decimal.Decimal))
+	}else if convertType == db.VARCHAR {
+		data = value.(string)
+	}else if convertType == db.BOOL {
+		data =BoolToString(value.(bool))
+	}else{
+		return data,fmt.Errorf("`%s` not convert string", vType)
+	}
+	return data,nil
+}
+
 func StringToBool(value string) (bool,error) {
 	if len(value) > 0 {
 		boolValue,err := strconv.ParseBool(value); if err != nil {
@@ -114,25 +143,6 @@ func StringToBool(value string) (bool,error) {
 		return boolValue,nil
 	}
 	return false,nil
-}
-
-func BoolToString(value bool) string {
-	return strconv.FormatBool(value)
-}
-
-func ByteToInt32(value []byte) int32 {
-	var int32Value int32 = 0
-	if len(value) > 0 {
-		getBuf := bytes.NewBuffer(value)
-		binary.Read(getBuf, binary.BigEndian, &int32Value)
-	}
-	return int32Value
-}
-
-func Int32ToByte(value int32) []byte {
-	putBuf := bytes .NewBuffer([]byte{})
-	binary.Write(putBuf, binary.BigEndian, value)
-	return putBuf.Bytes()
 }
 
 func StringToInt64(value string) (int64,error) {
@@ -145,11 +155,51 @@ func StringToInt64(value string) (int64,error) {
 	return 0,nil
 }
 
-func Int64ToString(value int64) string {
-	return strconv.FormatInt(value, 10)
+func StringToDecimal(value string) (decimal.Decimal,error) {
+	if value == "" {
+		return decimal.NewFromInt(0),nil
+	}
+	return decimal.NewFromString(value)
 }
 
-func ByteToInt64(value []byte) int64 {
+//////////////////// Bool Convert or Parse ////////////////////
+
+func ConvertBool(vType string, value interface{}) (bool,error) {
+	var data bool
+	var err error
+	switch vType {
+	case TypeBool:
+		data = value.(bool)
+	case TypeString:
+		if value == "" {
+			data = false
+		}else{
+			data,err =StringToBool(value.(string)); if err != nil {
+				return data, fmt.Errorf("string not convert bool")
+			}
+		}
+	default:
+		return data,fmt.Errorf("`%s` not convert bool", vType)
+	}
+	return data,nil
+}
+
+func BoolToString(value bool) string {
+	return strconv.FormatBool(value)
+}
+
+//////////////////// Bytes Convert or Parse ////////////////////
+
+func BytesToInt32(value []byte) int32 {
+	var int32Value int32 = 0
+	if len(value) > 0 {
+		getBuf := bytes.NewBuffer(value)
+		binary.Read(getBuf, binary.BigEndian, &int32Value)
+	}
+	return int32Value
+}
+
+func BytesToInt64(value []byte) int64 {
 	var int64Value int64 = 0
 	if len(value) > 0 {
 		getBuf := bytes.NewBuffer(value)
@@ -158,12 +208,25 @@ func ByteToInt64(value []byte) int64 {
 	return int64Value
 }
 
-func Int64ToByte(value int64) []byte {
+//////////////////// Int Convert or Parse ////////////////////
+
+func Int32ToBytes(value int32) []byte {
+	return IntToBytes(value)
+}
+
+func Int64ToBytes(value int64) []byte {
+	return IntToBytes(value)
+}
+
+func IntToBytes(value interface{}) []byte {
 	putBuf := bytes .NewBuffer([]byte{})
 	binary.Write(putBuf, binary.BigEndian, value)
 	return putBuf.Bytes()
 }
 
+func Int64ToString(value int64) string {
+	return strconv.FormatInt(value, 10)
+}
 
 func ConvertInt64(vType string, value interface{}) (int64,error) {
 	var data int64
@@ -218,29 +281,7 @@ func ConvertInt64OrDecimal(vType string, value interface{}) (string,interface{},
 	return TypeInt64,data,nil
 }
 
-func ConvertBool(vType string, value interface{}) (bool,error) {
-	var data bool
-	var err error
-	switch vType {
-	case TypeBool:
-		data = value.(bool)
-	case TypeString:
-		if value == "" {
-			data = false
-		}else{
-			data,err =StringToBool(value.(string)); if err != nil {
-				return data, fmt.Errorf("string not convert bool")
-			}
-		}
-	default:
-		return data,fmt.Errorf("`%s` not convert bool", vType)
-	}
-	return data,nil
-}
-
-func ConvertDecimalByFloat64(vType string, value float64) decimal.Decimal {
-	return decimal.NewFromFloat(value)
-}
+//////////////////// Decimal Convert or Parse ////////////////////
 
 func ConvertDecimal(vType string, value interface{}) (decimal.Decimal,error) {
 	var data decimal.Decimal
@@ -250,8 +291,8 @@ func ConvertDecimal(vType string, value interface{}) (decimal.Decimal,error) {
 		data = value.(decimal.Decimal)
 	case TypeInt,TypeInt8,TypeInt16,TypeInt32,TypeInt64:
 		convertValue, err :=ConvertInt64(vType, value); if err != nil {
-			return data,fmt.Errorf("`%s` not convert decimal", vType)
-		}
+		return data,fmt.Errorf("`%s` not convert decimal", vType)
+	}
 		data = decimal.NewFromInt(convertValue)
 	case TypeFloat64:
 		data =ConvertDecimalByFloat64(vType, value.(float64))
@@ -269,6 +310,49 @@ func ConvertDecimal(vType string, value interface{}) (decimal.Decimal,error) {
 	return data,nil
 }
 
+func ConvertDecimalByFloat64(vType string, value float64) decimal.Decimal {
+	return decimal.NewFromFloat(value)
+}
+
+func DecimalToString(value decimal.Decimal) string {
+	return value.String()
+}
+
+//////////////////// ID Convert or Parse ////////////////////
+
+func BlockIDToBytes(blockID db.BlockID) []byte {
+	return Int32ToBytes(blockID)
+}
+
+func BytesToBlockID(value []byte) db.BlockID {
+	return BytesToInt32(value)
+}
+
+func RowIDToBytes(rowID db.RowID) []byte {
+	return Int64ToBytes(rowID)
+}
+
+func BytesToRowID(value []byte) db.RowID {
+	return BytesToInt64(value)
+}
+
+func ConvertRowID(value interface{}) (db.RowID,error) {
+	if value == nil {
+		return db.RowID(0),nil
+	}
+	vType := reflect.ValueOf(value).Type().String()
+	switch vType {
+	case TypeInt,TypeInt8,TypeInt16,TypeInt32,TypeInt64,TypeString:
+		rowID,err := ConvertInt64(vType, value); if err != nil {
+		return db.RowID(0),fmt.Errorf("rowID convert failed `%s`", err.Error())
+	}
+		return rowID,nil
+	}
+	return db.RowID(0),fmt.Errorf("rowID convert type error")
+}
+
+//////////////////// Data Convert or Parse ////////////////////
+
 func ConvertDataType(value interface{}) (db.DataType,string) {
 	vType := reflect.ValueOf(value).Type().String()
 	switch vType {
@@ -284,61 +368,68 @@ func ConvertDataType(value interface{}) (db.DataType,string) {
 	return db.UNDEFINED,vType
 }
 
-func ConvertString(value interface{}) (string,error) {
-	data := ""
-	if value == nil {
-		return data,nil
-	}
-	convertType, vType :=ConvertDataType(value)
-	if convertType == db.INT {
-		returnType,value,err :=ConvertInt64OrDecimal(vType, value); if err != nil {
-			return data,err
-		}
-		if returnType == TypeInt64 {
-			data =Int64ToString(value.(int64))
-		}else{
-			data = value.(decimal.Decimal).String()
-		}
-	}else if convertType == db.DECIMAL {
-		data = value.(decimal.Decimal).String()
-	}else if convertType == db.VARCHAR {
-		data = value.(string)
-	}else if convertType == db.BOOL {
-		data =BoolToString(value.(bool))
-	}else{
-		return data,fmt.Errorf("`%s` not convert string", vType)
-	}
-	return data,nil
-}
-
-func ConvertColumnData(column db.Column, value interface{}) (interface{},error) {
-	var data interface{}
-	var err error
+func FormatColumnData(column db.Column, value interface{}) ([]byte,error) {
 	if value == nil {
 		return nil,nil
 	}
 	columnType := column.Type
 	if columnType == db.VARCHAR {
-		data, err =ConvertString(value); if err != nil {
-			return data, fmt.Errorf("column `%s` data `%s` convert string error %s", column.Name, value, err)
+		data,err := ConvertString(value); if err != nil {
+			return nil, fmt.Errorf("column `%s` data `%s` convert string error %s", column.Name, value, err)
 		}
+		return []byte(data),nil
 	} else{
-		convertType, vType :=ConvertDataType(value)
+		convertType, vType := ConvertDataType(value)
 		if columnType == db.BOOL && (convertType == db.VARCHAR || convertType == db.BOOL) {
-			data,err =ConvertBool(vType, value); if err != nil {
-				return data, fmt.Errorf("column `%s` data `%s` convert bool error %s", column.Name, value, err)
+			data,err := ConvertBool(vType, value); if err != nil {
+				return nil, fmt.Errorf("column `%s` data `%s` convert bool error %s", column.Name, value, err)
 			}
+			return []byte(BoolToString(data)),nil
 		} else if columnType == db.INT && (convertType == db.VARCHAR || convertType == db.INT) {
-			vType,data,err =ConvertInt64OrDecimal(vType, value); if vType != TypeInt64 || err != nil {
-				return data, fmt.Errorf("column `%s` data `%s` convert int64 error %s", column.Name, value, err)
+			vType,data,err := ConvertInt64OrDecimal(vType, value); if vType != TypeInt64 || err != nil {
+				return nil, fmt.Errorf("column `%s` data `%s` convert int64 error %s", column.Name, value, err)
 			}
+			return Int64ToBytes(data.(int64)),nil
 		} else if columnType == db.DECIMAL && (convertType == db.VARCHAR || convertType == db.INT || convertType == db.DECIMAL) {
-			data,err =ConvertDecimal(vType, value); if err != nil {
-				return data, fmt.Errorf("column `%s` data `%s` convert decimal error %s", column.Name, value, err)
+			data,err := ConvertDecimal(vType, value); if err != nil {
+				return nil, fmt.Errorf("column `%s` data `%s` convert decimal error %s", column.Name, value, err)
 			}
+			return []byte(DecimalToString(data)),nil
 		} else {
-			return data, fmt.Errorf("column `%s` datatype `%s` error", column.Name, vType)
+			return nil, fmt.Errorf("column `%s` datatype `%s` error", column.Name, vType)
 		}
 	}
-	return data,nil
+}
+
+func ParseColumnDataByNull(column db.Column) (interface{},error) {
+	switch column.Type {
+	case db.VARCHAR:
+		return "",nil
+	case db.BOOL:
+		return false,nil
+	case db.INT:
+		return 0,nil
+	case db.DECIMAL:
+		return 0,nil
+	}
+	return nil,fmt.Errorf("column `%s` datatype parse error", column.Name)
+}
+
+func ParseColumnData(column db.Column, value []byte) (interface{},error) {
+	switch column.Type {
+		case db.VARCHAR:
+			return string(value),nil
+		case db.BOOL:
+			return StringToBool(string(value)),nil
+		case db.INT:
+			return BytesToInt64(value),nil
+		case db.DECIMAL:
+			return StringToDecimal(string(value))
+	}
+	return nil,fmt.Errorf("column `%s` datatype parse error", column.Name)
+}
+
+func JsonDataExists(key string, json db.JsonData) bool {
+	_,exists := json[key]
+	return exists
 }

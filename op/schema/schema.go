@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"gitee.com/bidpoc/database-fabric-cc/db"
 	"gitee.com/bidpoc/database-fabric-cc/db/index"
-	"gitee.com/bidpoc/database-fabric-cc/db/row"
 	"gitee.com/bidpoc/database-fabric-cc/db/storage"
 	"gitee.com/bidpoc/database-fabric-cc/db/storage/state"
 	"gitee.com/bidpoc/database-fabric-cc/db/table"
 	"gitee.com/bidpoc/database-fabric-cc/db/util"
+	"gitee.com/bidpoc/database-fabric-cc/op/row"
 	"reflect"
 )
 
@@ -21,7 +21,7 @@ type SchemaService struct {
 }
 
 func NewSchemaService(state state.ChainCodeState) *SchemaService {
-	return &SchemaService{storage.NewSchemaStorage(state),table.NewTableService(state),row.NewRowService(state),index.NewIndexService(state)}
+	return &SchemaService{storage.NewSchemaStorage(state),table.NewTableService(state), row.NewRowService(state),index.NewIndexService(state)}
 }
 
 const (

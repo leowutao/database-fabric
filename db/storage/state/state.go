@@ -3,6 +3,7 @@ package state
 import (
 	"bytes"
 	"encoding/json"
+	"gitee.com/bidpoc/database-fabric-cc/db"
 	"gitee.com/bidpoc/database-fabric-cc/db/util"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 )
@@ -26,7 +27,7 @@ func (state *StateImpl) GetTxCache() map[string][]byte {
 
 ////// Common Operation //////
 func (state *StateImpl) PrefixAddKey(prefix string, key string) string {
-	return prefix + key
+	return prefix + "-" + key
 }
 
 func (state *StateImpl) CompositeKey(keys... string) string {
@@ -41,14 +42,14 @@ func (state *StateImpl) CompositeKey(keys... string) string {
 }
 
 ////// State Operation //////
-func (state *StateImpl) PutOrDelKey(key string, value []byte, op Op) error {
+func (state *StateImpl) PutOrDelKey(key string, value []byte, op db.StateType) error {
 	collection,err := state.getCollectionKey()
 	if err != nil {
 		return err
 	}
-	if op == Set {
+	if op == db.SetState {
 		return state.putData(collection, key, value)
-	}else if op == Del {
+	}else if op == db.DelState {
 		return state.delData(collection, key)
 	}
 	return nil
@@ -62,7 +63,7 @@ func (state *StateImpl) GetKey(key string) ([]byte,error) {
 	return state.getData(collection, key)
 }
 
-func (state *StateImpl) PutOrDelData(prefix string, key string, value []byte, op Op) error {
+func (state *StateImpl) PutOrDelData(prefix string, key string, value []byte, op db.StateType) error {
 	collection,err := state.getCollectionKey()
 	if err != nil {
 		return err
@@ -74,7 +75,7 @@ func (state *StateImpl) PutOrDelData(prefix string, key string, value []byte, op
 	return state.putVersion(collection, state.PrefixAddKey(prefix, key), version)
 }
 
-func (state *StateImpl) PutOrDelCompositeKeyData(objectTypePrefix string, objectType string, attributes []string, value []byte, op int8) error {
+func (state *StateImpl) PutOrDelCompositeKeyData(objectTypePrefix string, objectType string, attributes []string, value []byte, op db.StateType) error {
 	collection,err := state.getCollectionKey()
 	if err != nil {
 		return err
@@ -196,13 +197,6 @@ func (state *StateImpl) getStateQueryIterator(resultsIterator shim.StateQueryIte
 /////////////////// ChainCode State Put and Get ///////////////////
 const HistoryCompositeKey = "HISTORY{KEY}VERSION"
 
-type Op = int8
-const (
-	Set Op = iota
-	Del
-	SetOrDel
-)
-
 type CompositeOp int8
 const (
 	CompositeAll CompositeOp = iota
@@ -211,7 +205,7 @@ const (
 )
 
 type History struct {
-	Op Op `json:"op"`
+	Op db.StateType `json:"op"`
 	TxID string `json:"txID"`
 	Timestamp int64 `json:"timestamp"`
 	Value []byte `json:"value"`
@@ -384,7 +378,7 @@ func (state *StateImpl) putVersion(collection string, key string, versionKey str
 	return state.putData(collection, key, versionBytes)
 }
 
-func (state *StateImpl) putDataHistory(collection string, objectTypePrefix string, attributes []string, value []byte, op int8) (string,error) {
+func (state *StateImpl) putDataHistory(collection string, objectTypePrefix string, attributes []string, value []byte, op db.StateType) (string,error) {
 	versionKey := ""
 	timestamp,err := state.stub.GetTxTimestamp(); if err != nil {
 		return versionKey,err

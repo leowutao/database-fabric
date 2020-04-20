@@ -3,14 +3,15 @@ package tree
 import (
 	"encoding/json"
 	"fmt"
+	"gitee.com/bidpoc/database-fabric-cc/db"
 	"gitee.com/bidpoc/database-fabric-cc/db/util"
 )
 
 type Pointer = int32  //节点指针类型，占用4byte(节点关键字指向下级指针大小，如果关键字和下级指针类型一致，即占用8byte)
 const (
-	NODE_PREFIX_MAX_SIZE = 64 	 //节点前缀最大暂用空间
-	NODE_POINTER_SIZE = 4        //节点指针大小,对应Pointer类型暂用空间
-	NODE_NAME_SIZE = NODE_PREFIX_MAX_SIZE + NODE_POINTER_SIZE  //节点名字暂用空间
+	NODE_PREFIX_MAX_SIZE = 64 	 //节点前缀最大占用空间
+	NODE_POINTER_SIZE = 4        //节点指针大小,对应Pointer类型占用空间
+	NODE_NAME_SIZE = NODE_PREFIX_MAX_SIZE + NODE_POINTER_SIZE  //节点名字占用空间
 )
 
 const (
@@ -20,7 +21,7 @@ const (
 	MAX_NODE_SIZE     = 1024 * 4 //节点最大容量4KB
 	MAX_KEY_NUM       = 1000     //节点最大key数量，position为int16类型
 	MAX_NODE_NUM      = 100000   //树最大节点数量
-	MAX_TREE_HEIGHT   = 10        //树最大阶数
+	MAX_TREE_HEIGHT   = 10        //树最大高度
 
 	//关键字个数配置
 	MAX_NODE_KEY_NUM = MAX_TREE_HEIGHT
@@ -68,8 +69,7 @@ const (
 
 //表字段索引树头信息
 type TreeHead struct {
-	Table     string   `json:"table"`     //表名
-	Column    string   `json:"column"`    //列名
+	Key 	  db.ColumnKey `json:"key"`    //键
 	Type      TreeType `json:"type"`      //树类型
 	Root      Pointer  `json:"root"`      //根节点指针
 	Height    int8     `json:"height"`    //高度
@@ -97,11 +97,11 @@ type Collection struct {
 }
 
 func BytesToPointer(value []byte) Pointer {
-	return util.ByteToInt32(value)
+	return util.BytesToInt32(value)
 }
 
 func PointerToBytes(pointer Pointer) []byte {
-	return util.Int32ToByte(pointer)
+	return util.Int32ToBytes(pointer)
 }
 
 func PointerToString(pointer Pointer) string {

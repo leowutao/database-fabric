@@ -2,6 +2,7 @@ package bptree
 
 import (
 	"fmt"
+	"gitee.com/bidpoc/database-fabric-cc/db"
 	"gitee.com/bidpoc/database-fabric-cc/db/index/tree"
 	"gitee.com/bidpoc/database-fabric-cc/db/storage"
 	"gitee.com/bidpoc/database-fabric-cc/db/storage/state"
@@ -18,9 +19,8 @@ func TestBPTree(t *testing.T){
 
 	//树基本验证
 	{
-		table := "Test"
-		column := "id"
-		treeHead,err := bPTreeImpl.CreateHead(table, column, tree.TreeTypeAsc); if err != nil {
+		key := db.ColumnKey{db.DataBaseID(1),db.TableID(1),db.ColumnID(1)}
+		treeHead,err := bPTreeImpl.CreateHead(key, tree.TreeTypeAsc); if err != nil {
 			panic(err.Error())
 		}
 		for i := tree.Pointer(1); i <= 1000; i++ {

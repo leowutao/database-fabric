@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"gitee.com/bidpoc/database-fabric-cc/db"
 	"gitee.com/bidpoc/database-fabric-cc/db/index/tree"
 	"gitee.com/bidpoc/database-fabric-cc/db/storage"
 	"gitee.com/bidpoc/database-fabric-cc/db/util"
@@ -49,8 +50,8 @@ func NewBPTreeImpl(storage *storage.BPTreeStorage) *BPTreeImpl {
 
 ///////////////////////// Storage Function //////////////////////
 
-func (service *BPTreeImpl) getHead(table string, column string) (*tree.TreeHead, error) {
-	headBytes, err := service.storage.GetHead(table, column)
+func (service *BPTreeImpl) getHead(key db.ColumnKey) (*tree.TreeHead, error) {
+	headBytes, err := service.storage.GetHead(key)
 	if err != nil {
 		return nil, err
 	}
@@ -64,16 +65,16 @@ func (service *BPTreeImpl) getHead(table string, column string) (*tree.TreeHead,
 	return head, nil
 }
 
-func (service *BPTreeImpl) createHead(table string, column string, treeType tree.TreeType, cache *TreeNodeCache) (*tree.TreeHead, error) {
+func (service *BPTreeImpl) createHead(key db.ColumnKey, treeType tree.TreeType, cache *TreeNodeCache) (*tree.TreeHead, error) {
 	if cache != nil && cache.Head != nil {
 		return cache.Head, nil
 	}
-	head, err := service.getHead(table, column)
+	head, err := service.getHead(key)
 	if err != nil {
 		return nil, err
 	}
 	if head == nil  {
-		head = &tree.TreeHead{table,column,treeType,0,0,0,0,0}
+		head = &tree.TreeHead{Key:key, Type:treeType}
 	}
 	if cache != nil {
 		cache.Head = head
@@ -86,7 +87,7 @@ func (service *BPTreeImpl) getNodePosition(pointer tree.Pointer, parent *TreeNod
 	if ok {
 		return nodePosition, nil
 	}
-	nodeBytes, err := service.storage.GetNode(cache.Head.Table, cache.Head.Column, util.Int64ToString(int64(pointer)))
+	nodeBytes, err := service.storage.GetNode(cache.Head.Key, util.Int64ToString(int64(pointer)))
 	if err != nil {
 		return nil, err
 	}
@@ -106,8 +107,6 @@ func (service *BPTreeImpl) getNodePosition(pointer tree.Pointer, parent *TreeNod
 }
 
 func (service *BPTreeImpl) putNode(cache *TreeNodeCache) error {
-	table := cache.Head.Table
-	column := cache.Head.Column
 	//fmt.Println(fmt.Sprintf("write node length %d", len(cache.Write)))
 	for pointer, nodePosition := range cache.Write {
 		//fmt.Println(nodePosition.Node.Keys)
@@ -117,7 +116,7 @@ func (service *BPTreeImpl) putNode(cache *TreeNodeCache) error {
 		if err != nil {
 			return err
 		}
-		if err := service.storage.PutNode(table, column, util.Int64ToString(int64(pointer)), nodeBytes); err != nil {
+		if err := service.storage.PutNode(cache.Head.Key, util.Int64ToString(int64(pointer)), nodeBytes); err != nil {
 			return err
 		}
 	}
@@ -125,7 +124,7 @@ func (service *BPTreeImpl) putNode(cache *TreeNodeCache) error {
 	if err != nil {
 		return err
 	}
-	if err := service.storage.PutHead(table, column, headBytes); err != nil {
+	if err := service.storage.PutHead(cache.Head.Key, headBytes); err != nil {
 		return err
 	}
 	return nil
@@ -236,15 +235,15 @@ func (service *BPTreeImpl) printNode(nodePosition *TreeNodePosition, height int8
 /**
 	创建树头
  */
-func (service *BPTreeImpl) CreateHead(table string, column string, treeType tree.TreeType) (*tree.TreeHead, error) {
-	return service.createHead(table, column, treeType,nil)
+func (service *BPTreeImpl) CreateHead(key db.ColumnKey, treeType tree.TreeType) (*tree.TreeHead, error) {
+	return service.createHead(key, treeType,nil)
 }
 
 /**
 	查询树头
 */
-func (service *BPTreeImpl) SearchHead(table string, column string) (*tree.TreeHead, error)  {
-	return service.getHead(table, column)
+func (service *BPTreeImpl) SearchHead(key db.ColumnKey) (*tree.TreeHead, error)  {
+	return service.getHead(key)
 }
 
 /*

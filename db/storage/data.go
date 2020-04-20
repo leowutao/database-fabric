@@ -2,18 +2,229 @@ package storage
 
 import (
 	"encoding/json"
+	"fmt"
 	"gitee.com/bidpoc/database-fabric-cc/db"
 	"gitee.com/bidpoc/database-fabric-cc/db/storage/state"
 	"gitee.com/bidpoc/database-fabric-cc/db/util"
 )
+////////////////////////////////////// Common Storage //////////////////////////////////////
 
 type CommonStorage struct {
-	state.ChainCodeState
+	state state.ChainCodeState
 }
 
-func (common *CommonStorage) Init(state state.ChainCodeState)  {
-	common.ChainCodeState = state
+func (storage *CommonStorage) Init(state state.ChainCodeState)  {
+	storage.state = state
 }
+
+func (storage *CommonStorage) GetTxID() (string,int64,error) {
+	txID := storage.state.GetStub().GetTxID()
+	timestamp,err := storage.state.GetStub().GetTxTimestamp(); if err != nil {
+		return txID,0,err
+	}
+	return txID,timestamp.Seconds,nil
+}
+
+func (storage *CommonStorage) getNames(key string) ([]string,error) {
+	bytes,err := storage.state.GetKey(key); if err != nil {
+		return nil,err
+	}
+	var names []string
+	if len(bytes) > 0 {
+		err := json.Unmarshal(bytes, &names); if err != nil {
+			return nil,err
+		}
+	}
+	return names,nil
+}
+
+func (storage *CommonStorage) putNames(key string, names []string) error {
+	bytes,err := util.ConvertJsonBytes(names); if err !=nil {
+		return err
+	}
+	return storage.state.PutOrDelKey(key, bytes, db.SetState)
+}
+
+func (storage *CommonStorage) addName(key string, name string) (int,error) {
+	names,err := storage.getNames(key); if err != nil {
+		return 0,err
+	}
+	length := len(names)
+	length++
+	names = append(names, name)
+	bytes,err := util.ConvertJsonBytes(names); if err !=nil {
+		return 0,err
+	}
+	return length,storage.state.PutOrDelKey(key, bytes, db.SetState)
+}
+
+func (storage *CommonStorage) findName(key string, name string) (int,error) {
+	names,err := storage.getNames(key); if err != nil {
+		return 0,err
+	}
+	for i,v := range names {
+		if name == v {
+			return i+1,nil
+		}
+	}
+	return 0,nil
+}
+
+func (storage *CommonStorage) getChainDataKey() string {
+	return storage.state.PrefixAddKey(db.ChainPrefix, string(db.ChainKeyType))
+}
+
+func (storage *CommonStorage) getDataBaseDataKey(database db.DataBaseID) string {
+	return storage.state.PrefixAddKey(string(db.DataBaseKeyType), string(database))
+}
+
+func (storage *CommonStorage) getRelationDataKey(database db.DataBaseID) string {
+	return storage.state.PrefixAddKey(string(db.RelationKeyType), string(database))
+}
+
+func (storage *CommonStorage) getTableDataKey(database db.DataBaseID, table db.TableID) string {
+	return storage.state.PrefixAddKey(string(db.TableKeyType), storage.state.CompositeKey(string(database), string(table)))
+}
+
+func (storage *CommonStorage) getBlockDataKey(database db.DataBaseID, table db.TableID, block db.BlockID) string {
+	return storage.state.PrefixAddKey(string(db.BlockKeyType), storage.state.CompositeKey(string(database), string(table), string(block)))
+}
+
+func (storage *TableStorage) createDataBase(name string) (db.DataBaseID,error) {
+	id,err := storage.addName(storage.getChainDataKey(), name)
+	return db.DataBaseID(id),err
+}
+
+func (storage *CommonStorage) getDataBase(name string) (db.DataBaseID,error) {
+	id,err := storage.findName(storage.getChainDataKey(), name)
+	return db.DataBaseID(id),err
+}
+
+func (storage *CommonStorage) getAllTable(database db.DataBaseID) ([]string,error) {
+	return storage.getNames(storage.getDataBaseDataKey(database))
+}
+
+func (storage *CommonStorage) createTable(database db.DataBaseID, name string) (db.TableID,error) {
+	id,err := storage.addName(storage.getDataBaseDataKey(database), name)
+	return db.TableID(id),err
+}
+
+func (storage *CommonStorage) updateTable(database db.DataBaseID, table db.TableID, name string) error {
+	key := storage.getDataBaseDataKey(database)
+	names,err := storage.getNames(key); if err != nil {
+		return err
+	}
+	if db.TableID(len(names)) < table {
+		return fmt.Errorf("table id not found")
+	}
+	names[table-1] = name
+	return storage.putNames(key, names)
+}
+
+func (storage *CommonStorage) deleteTable(database db.DataBaseID, table db.TableID) error {
+	return storage.updateTable(database, table,"")
+}
+
+func (storage *CommonStorage) getTable(database db.DataBaseID, name string) (db.TableID,error) {
+	id,err := storage.findName(storage.getDataBaseDataKey(database), name)
+	return db.TableID(id),err
+}
+
+func (storage *CommonStorage) getTableName(database db.DataBaseID, table db.TableID) (string,error) {
+	key := storage.getDataBaseDataKey(database)
+	names,err := storage.getNames(key); if err != nil {
+		return "",err
+	}
+	if db.TableID(len(names)) < table {
+		return "",fmt.Errorf("table id not found")
+	}
+	return names[table-1],nil
+}
+
+////////////////////////////////////// Database Storage //////////////////////////////////////
+type DatabaseStorage struct {
+	CommonStorage
+}
+
+func NewDatabaseStorage(state state.ChainCodeState) *DatabaseStorage {
+	storage := new(DatabaseStorage)
+	storage.Init(state)
+	return storage
+}
+
+func (storage *DatabaseStorage) GetRelationData(database db.DataBaseID) ([]byte,error) {
+	return storage.state.GetKey(storage.getRelationDataKey(database))
+}
+
+func (storage *DatabaseStorage) PutRelationData(database db.DataBaseID, value []byte) error {
+	return storage.state.PutOrDelKey(storage.getRelationDataKey(database), value, db.SetState)
+}
+
+func (storage *DatabaseStorage) CreateTable(database db.DataBaseID, tableName string) (db.TableID,error) {
+	return storage.createTable(database, tableName)
+}
+
+func (storage *DatabaseStorage) UpdateTable(database db.DataBaseID, tableID db.TableID, name string) error {
+	return storage.updateTable(database, tableID, name)
+}
+
+func (storage *DatabaseStorage) DeleteTable(database db.DataBaseID, tableID db.TableID) error {
+	return storage.deleteTable(database, tableID)
+}
+
+func (storage *DatabaseStorage) GetTable(database db.DataBaseID, name string) (db.TableID,error) {
+	return storage.getTable(database, name)
+}
+
+func (storage *DatabaseStorage) GetTableName(database db.DataBaseID, tableID db.TableID) (string,error) {
+	return storage.getTableName(database, tableID)
+}
+
+func (storage *DatabaseStorage) GetAllTable(database db.DataBaseID) ([]string,error) {
+	return storage.getAllTable(database)
+}
+
+////////////////////////////////////// Table Storage //////////////////////////////////////
+type TableStorage struct {
+	CommonStorage
+}
+
+func NewTableStorage(state state.ChainCodeState) *TableStorage {
+	storage := new(TableStorage)
+	storage.Init(state)
+	return storage
+}
+
+func (storage *TableStorage) GetTableData(database db.DataBaseID, table db.TableID) ([]byte,error) {
+	return storage.state.GetKey(storage.getTableDataKey(database, table))
+}
+
+func (storage *TableStorage) PutTableData(database db.DataBaseID, table db.TableID, value []byte) error {
+	return storage.state.PutOrDelKey(storage.getTableDataKey(database, table), value, db.SetState)
+}
+
+
+
+////////////////////////////////////// Block Storage //////////////////////////////////////
+type BlockStorage struct {
+	CommonStorage
+}
+
+func NewBlockStorage(state state.ChainCodeState) *BlockStorage {
+	storage := new(BlockStorage)
+	storage.Init(state)
+	return storage
+}
+
+func (storage *BlockStorage) GetBlockData(database db.DataBaseID, table db.TableID, block db.BlockID) ([]byte,error) {
+	return storage.state.GetKey(storage.getBlockDataKey(database, table, block))
+}
+
+func (storage *BlockStorage) PutBlockData(database db.DataBaseID, table db.TableID, block db.BlockID, value []byte) error {
+	return storage.state.PutOrDelKey(storage.getBlockDataKey(database, table, block), value, db.SetState)
+}
+
+////////////////////////////////////// BPTree Storage //////////////////////////////////////
 
 type BPTreeStorage struct {
 	CommonStorage
@@ -24,6 +235,39 @@ func NewBPTreeStorage(state state.ChainCodeState) *BPTreeStorage {
 	storage.Init(state)
 	return storage
 }
+
+type BPTreeNodeType int8
+const (
+	HeadNodeType BPTreeNodeType = iota
+	NodeType
+)
+
+func (storage *BPTreeStorage) GetHeadPrefix(key db.ColumnKey) string {
+	return storage.state.PrefixAddKey(string(db.IndexKeyType), storage.state.CompositeKey(string(HeadNodeType), string(key.Database), string(key.Table), string(key.Column)))
+}
+
+func (storage *BPTreeStorage) PutHead(key db.ColumnKey, value []byte) error {
+	return storage.state.PutOrDelKey(storage.GetHeadPrefix(key), value, db.SetState)
+}
+
+func (storage *BPTreeStorage) GetHead(key db.ColumnKey) ([]byte,error) {
+	return storage.state.GetKey(storage.GetHeadPrefix(key))
+}
+
+func (storage *BPTreeStorage) GetNodePrefix(key db.ColumnKey, pointer string) string {
+	return storage.state.PrefixAddKey(string(db.IndexKeyType), storage.state.CompositeKey(string(NodeType),  string(key.Database), string(key.Table), string(key.Column), pointer))
+}
+
+func (storage *BPTreeStorage) PutNode(key db.ColumnKey, pointer string, value []byte) error {
+	return storage.state.PutOrDelKey(storage.GetNodePrefix(key, pointer), value, db.SetState)
+}
+
+func (storage *BPTreeStorage) GetNode(key db.ColumnKey, pointer string) ([]byte,error) {
+	return storage.state.GetKey(storage.GetNodePrefix(key, pointer))
+}
+
+
+
 
 type HistoryStorage struct {
 	CommonStorage
@@ -41,16 +285,6 @@ type RowStorage struct {
 
 func NewRowStorage(state state.ChainCodeState) *RowStorage {
 	storage := new(RowStorage)
-	storage.Init(state)
-	return storage
-}
-
-type TableStorage struct {
-	CommonStorage
-}
-
-func NewTableStorage(state state.ChainCodeState) *TableStorage {
-	storage := new(TableStorage)
 	storage.Init(state)
 	return storage
 }
@@ -85,322 +319,16 @@ func NewOtherStorage(state state.ChainCodeState) *OtherStorage {
 	return storage
 }
 
-/////////////////// Table、Row、Schema Data Operation ///////////////////
-const (
-	TallyPrefix = "TALLY-"
-
-	TablePrefix = "TABLE-"
-	SchemaPrefix = "SCHEMA-"
-	RowPrefix = "ROW-"
-	RowIndexPrefix = "ROW_INDEX-"
-	ForeignKeyPrefix = "FOREIGN_KEY-"
-
-	TableCompositeKey = "NAME"
-	SchemaCompositeKey = "NAME"
-	RowCompositeKey = "TABLE~ID"
-
-	//RowIndexCompositeKey = "TABLE~COLUMN~VALUE~ID"
-	//ForeignKeyCompositeKey = "REFERENCE{TABLE~COLUMN}~FOREIGN_KEY{TABLE~COLUMN}"
-
-	BPTreeHeadPrefix = "TREE_INDEX_H-"
-	BPTreeNodePrefix = "TREE_INDEX_N-"
-)
-
-func (storage *TableStorage) GetAllTableData() ([][]byte,error) {
-	return storage.GetCompositeKeyDataList(TablePrefix, TableCompositeKey, []string{}, []string{},0,false)
-}
-
-func (storage *TableStorage) GetAllTableKey() ([]string,error) {
-	return storage.GetCompositeKeyList(TablePrefix, TableCompositeKey, []string{}, []string{},0)
-}
-
-func (storage *TableStorage) GetTableDataByFilter(table string, filterVersion bool) ([]byte,error) {
-	return storage.GetCompositeKeyData(TablePrefix, TableCompositeKey, []string{table}, filterVersion)
-}
-
-func (storage *TableStorage) GetTableData(table string) ([]byte,error) {
-	return storage.GetTableDataByFilter(table,false)
-}
-
-func (storage *TableStorage) PutTableData(table string, value []byte) error {
-	return storage.PutOrDelCompositeKeyData(TablePrefix, TableCompositeKey, []string{table}, value, state.Set)
-}
-
-func (storage *TableStorage) DelTableData(table string) error {
-	return storage.PutOrDelCompositeKeyData(TablePrefix, TableCompositeKey, []string{table},nil, state.Del)
-}
-
-func (storage *TableStorage) GetTableTallyData(table string) ([]byte,error) {
-	return storage.GetKey(storage.PrefixAddKey(TallyPrefix, table))
-}
-
-func (storage *TableStorage) PutTableTallyData(table string, value []byte) error {
-	return storage.PutOrDelKey(storage.PrefixAddKey(TallyPrefix, table), value, state.Set)
-}
-
-func (storage *SchemaStorage) GetAllSchemaData() ([][]byte,error) {
-	return storage.GetCompositeKeyDataList(SchemaPrefix, SchemaCompositeKey, []string{}, []string{},0,false)
-}
-
-func (storage *SchemaStorage) GetAllSchemaKey() ([]string,error) {
-	return storage.GetCompositeKeyList(SchemaPrefix, SchemaCompositeKey, []string{}, []string{},0)
-}
-
-func (storage *SchemaStorage) GetSchemaDataByFilter(schema string, filterVersion bool) ([]byte,error) {
-	return storage.GetCompositeKeyData(SchemaPrefix, SchemaCompositeKey, []string{schema}, filterVersion)
-}
-
-func (storage *SchemaStorage) GetSchemaData(schema string) ([]byte,error) {
-	return storage.GetSchemaDataByFilter(schema, false)
-}
-
-func (storage *SchemaStorage) PutSchemaData(schema string, value []byte) error {
-	return storage.PutOrDelCompositeKeyData(SchemaPrefix, SchemaCompositeKey, []string{schema}, value, state.Set)
-}
-
-func (storage *SchemaStorage) DelSchemaData(schema string) error {
-	return storage.PutOrDelCompositeKeyData(SchemaPrefix, SchemaCompositeKey, []string{schema},nil, state.Del)
-}
-
-func (storage *RowStorage) GetAllRowData(table string) ([][]byte,error) {
-	return storage.GetCompositeKeyDataList(RowPrefix, RowCompositeKey, []string{table}, []string{},0,false)
-}
-
-func (storage *RowStorage) GetRowDataByFilter(table string, id string, filterVersion bool) ([]byte,error) {
-	return storage.GetCompositeKeyData(RowPrefix, RowCompositeKey, []string{table, id}, filterVersion)
-}
-
-func (storage *RowStorage) GetRowDataByVersion(table string, id string, version []byte) ([]byte,error) {
-	return storage.GetCompositeKeyDataByVersion(RowPrefix, RowCompositeKey, []string{table, id}, version)
-}
-
-func (storage *RowStorage) GetRowData(table string, id string) ([]byte,error) {
-	return storage.GetRowDataByFilter(table, id,false)
-}
-
-func (storage *RowStorage) GetRowDataByRange(table string, id string, pageSize int32) ([][]byte,error) {
-	var attributes []string
-	if id != "" {
-		attributes = append(attributes, id)
-	}
-	values,err := storage.GetCompositeKeyDataList(RowPrefix, RowCompositeKey, []string{table}, attributes, pageSize,false)
-	if err != nil {
-		return values,err
-	}
-	return values,nil
-}
-
-func (storage *RowStorage) PutRowData(table string, id string, value []byte) error {
-	return storage.PutOrDelCompositeKeyData(RowPrefix, RowCompositeKey, []string{table, id}, value, state.Set)
-}
-
-func (storage *RowStorage) DelRowData(table string, id string) error {
-	return storage.PutOrDelCompositeKeyData(RowPrefix, RowCompositeKey, []string{table, id}, nil, state.Del)
-}
-
-/////////////////// History Operation ///////////////////
-
-func (storage *HistoryStorage) GetTableDataHistory(table string, pageSize int32) ([][]byte,error) {
-	return storage.GetDataHistory(TablePrefix, []string{table}, pageSize)
-}
-
-func (storage *HistoryStorage) GetTableDataHistoryTotal(table string) int64 {
-	tableBytes,_ := storage.GetCompositeKeyData(TablePrefix, TableCompositeKey, []string{table},true)
-	if len(tableBytes) > 0 {
-		version := state.HistoryVersion{}
-		json.Unmarshal(tableBytes, &version)
-		return version.Total
-	}
-	return 0
-}
-
-func (storage *HistoryStorage) GetSchemaDataHistory(schema string, pageSize int32) ([][]byte,error) {
-	return storage.GetDataHistory(SchemaPrefix, []string{schema}, pageSize)
-}
-
-func (storage *HistoryStorage) GetSchemaDataHistoryTotal(schema string) int64 {
-	schemaBytes,_ := storage.GetCompositeKeyData(SchemaPrefix, SchemaCompositeKey, []string{schema},true)
-	if len(schemaBytes) > 0 {
-		version := state.HistoryVersion{}
-		json.Unmarshal(schemaBytes, &version)
-		return version.Total
-	}
-	return 0
-}
-
-func (storage *HistoryStorage) GetRowDataHistory(table string, id string, pageSize int32) ([][]byte,error) {
-	return storage.GetDataHistory(RowPrefix, []string{table, id}, pageSize)
-}
-
-func (storage *HistoryStorage) GetRowDataHistoryTotal(table string, id string) int64 {
-	rowBytes,_ := storage.GetCompositeKeyData(RowPrefix, RowCompositeKey, []string{table, id},true)
-	if len(rowBytes) > 0 {
-		version := state.HistoryVersion{}
-		json.Unmarshal(rowBytes, &version)
-		return version.Total
-	}
-	return 0
-}
-
-/////////////////// B+Tree Index Operation ///////////////////
-
-func (storage *BPTreeStorage) GetHeadPrefix(table string, column string) string {
-	return storage.PrefixAddKey(BPTreeHeadPrefix, storage.CompositeKey(table, column))
-}
-
-func (storage *BPTreeStorage) PutHead(table string, column string, value []byte) error {
-	return storage.PutOrDelKey(storage.GetHeadPrefix(table, column), value, state.Set)
-}
-
-func (storage *BPTreeStorage) GetHead(table string, column string) ([]byte,error) {
-	return storage.GetKey(storage.GetHeadPrefix(table, column))
-}
-
-func (storage *BPTreeStorage) GetNodePrefix(table string, column string, pointer string) string {
-	return storage.PrefixAddKey(BPTreeNodePrefix, storage.CompositeKey(table, column, pointer))
-}
-
-func (storage *BPTreeStorage) PutNode(table string, column string, pointer string, value []byte) error {
-	return storage.PutOrDelKey(storage.GetNodePrefix(table, column, pointer), value, state.Set)
-}
-
-func (storage *BPTreeStorage) GetNode(table string, column string, pointer string) ([]byte,error) {
-	return storage.GetKey(storage.GetNodePrefix(table, column, pointer))
-}
-
-/////////////////// Index Operation ///////////////////
-
-//func (storage *IndexStorage) GetAllRowIdByIndex(table string, column string, value string) ([]string,error) {
-//	var ids []string
-//	key := storage.PrefixAddKey(RowIndexPrefix, storage.CompositeKey(table, column, value))
-//	values,err := storage.GetKey(key); if err !=nil {
-//		return ids,err
-//	}
-//	if len(values) > 0 {
-//		err = json.Unmarshal(values, &ids); if err !=nil {
-//			return ids,err
-//		}
-//	}
-//	return ids,nil
-//}
-//
-//func (storage *IndexStorage) PutRowIdIndex(table string, column string, value string, id string) error {
-//	ids,err := storage.GetAllRowIdByIndex(table, column, value); if err !=nil {
-//		return err
-//	}
-//	ids = append(ids, id)
-//	jsonBytes,err := util.ConvertJsonBytes(ids); if err !=nil {
-//		return err
-//	}
-//	return storage.PutOrDelKey(storage.PrefixAddKey(RowIndexPrefix, storage.CompositeKey(table, column, value)), jsonBytes, state.Set)
-//}
-//
-//func (storage *IndexStorage) DelRowIdIndex(table string, column string, value string) error {
-//	return storage.PutOrDelKey(storage.PrefixAddKey(RowIndexPrefix, storage.CompositeKey(table, column, value)),nil, state.Del)
-//}
-//
-//func (storage *IndexStorage) GetRowIdByIndex(table string, column string, value string) (string,error) {
-//	id := ""
-//	ids,err := storage.GetAllRowIdByIndex(table, column, value); if err !=nil {
-//		return id,err
-//	}
-//	if ids != nil && len(ids) > 0 {
-//		id = ids[len(ids)-1]
-//	}
-//	return id,nil
-//}
-
-/////////////////// ForeignKey Operation ///////////////////
-
-func (storage *IndexStorage) GetAllForeignKeyByReferenceKey(key string) ([]db.ReferenceKey,error) {
-	var keys []db.ReferenceKey
-	values, err := storage.GetKey(key); if err != nil {
-		return keys, err
-	}
-	var foreignKeys []db.ReferenceKey
-	if len(values) > 0 {
-		err = json.Unmarshal(values, &foreignKeys); if err != nil {
-			return keys, err
-		}
-	}
-	return keys,nil
-}
-
-func (storage *IndexStorage) GetAllForeignKeyByReference(referenceTable string, referenceColumn string) ([]db.ReferenceForeignKey,error) {
-	var keys []db.ReferenceForeignKey
-	key := storage.PrefixAddKey(ForeignKeyPrefix, storage.CompositeKey(referenceTable, referenceColumn))
-	foreignKeys,err := storage.GetAllForeignKeyByReferenceKey(key); if err !=nil {
-		return keys,err
-	}
-	for _,k := range foreignKeys {
-		keys = append(keys, storage.referenceForeignKey(referenceTable, referenceColumn, k.Table, k.Column))
-	}
-	return keys,nil
-}
-
-func (storage *IndexStorage) PutForeignKey(foreignKey db.ReferenceForeignKey) error {
-	key := storage.PrefixAddKey(ForeignKeyPrefix, storage.CompositeKey(foreignKey.Reference.Table, foreignKey.Reference.Column))
-	foreignKeys,err := storage.GetAllForeignKeyByReferenceKey(key); if err !=nil {
-		return err
-	}
-	foreignKeys = append(foreignKeys, foreignKey.ForeignKey)
-	jsonBytes,err := util.ConvertJsonBytes(foreignKey); if err !=nil {
-		return err
-	}
-	return storage.PutOrDelKey(key, jsonBytes, state.Set)
-}
-
-func (storage *IndexStorage) DelForeignKey(foreignKey db.ReferenceForeignKey) error {
-	key := storage.PrefixAddKey(ForeignKeyPrefix, storage.CompositeKey(foreignKey.Reference.Table, foreignKey.Reference.Column))
-	return storage.PutOrDelKey(key,nil, state.Del)
-}
-
-func (storage *IndexStorage) GetForeignKey(foreignKey db.ReferenceForeignKey) (db.ReferenceForeignKey,error) {
-	var key db.ReferenceForeignKey
-	keys,err := storage.GetAllForeignKeyByReference(foreignKey.Reference.Table, foreignKey.Reference.Column); if err !=nil {
-		return key,err
-	}
-	if len(keys) > 0 {
-		for _,k := range keys {
-			if k.ForeignKey.Table == foreignKey.ForeignKey.Table && k.ForeignKey.Column == foreignKey.ForeignKey.Column {
-				return k,nil
-			}
-		}
-	}
-	return key,nil
-}
-
-func (storage *IndexStorage) GetForeignKeyByReference(referenceTable string, referenceColumn string) (db.ReferenceForeignKey,error) {
-	var key db.ReferenceForeignKey
-	keys,err := storage.GetAllForeignKeyByReference(referenceTable, referenceColumn); if err !=nil {
-		return key,err
-	}
-	if len(keys) > 0 {
-		return keys[0],nil
-	}
-	return key,nil
-}
-
-func (storage *IndexStorage) foreignKeyCompositeKey(foreignKey db.ReferenceForeignKey) []string {
-	return []string{foreignKey.Reference.Table, foreignKey.Reference.Column, foreignKey.ForeignKey.Table, foreignKey.ForeignKey.Column}
-}
-
-func (storage *IndexStorage) referenceForeignKey(keys... string) db.ReferenceForeignKey {
-	if len(keys) >0 {
-		return db.ReferenceForeignKey{db.ReferenceKey{keys[0],keys[1]}, db.ReferenceKey{keys[2],keys[3]}}
-	}
-	return db.ReferenceForeignKey{}
-}
 
 /////////////////// Other Operation ///////////////////
 func (storage *OtherStorage) GetOtherState(collection, key string) ([]byte,error) {
-	return storage.GetState(collection, key)
+	return storage.state.GetState(collection, key)
 }
 
 func (storage *OtherStorage) GetOtherStateByRange(collection string,  startKey string, endKey string) ([]byte,error) {
-	return storage.GetStateByRange(collection, startKey, endKey)
+	return storage.state.GetStateByRange(collection, startKey, endKey)
 }
 
 func (storage *OtherStorage) GetOtherStateByPartialCompositeKey(collection string,  objectType string, keys []string) ([]byte,error) {
-	return storage.GetStateByPartialCompositeKey(collection, objectType, keys)
+	return storage.state.GetStateByPartialCompositeKey(collection, objectType, keys)
 }
