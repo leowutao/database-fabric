@@ -83,13 +83,8 @@ func (operation *RowOperation) FormatRowData(table *db.Table, rowJson db.JsonDat
 		row.Data = oldRow.Data
 		oldRow = nil
 	}else if op == db.ADD {
-		if row.Id == 0 {
-			if table.Data.PrimaryKey.AutoIncrement {//自增
-				table.Data.Tally.Increment++
-				row.Id = table.Data.Tally.Increment
-			}else{
-				return nil,fmt.Errorf("add row must rowID or set autoIncrement=true")
-			}
+		if row.Id == 0 && !table.Data.PrimaryKey.AutoIncrement {//非自增
+			return nil,fmt.Errorf("add row must rowID or set autoIncrement=true")
 		}else{
 			if err := operation.validateExists(table.Data, row.Id); err != nil {
 				return nil,err
@@ -115,33 +110,32 @@ func (operation *RowOperation) FormatRowData(table *db.Table, rowJson db.JsonDat
 func (operation *RowOperation) formatAddOrUpdateRowData(table *db.Table, rowJson db.JsonData, row *db.RowData) error {
 	//列数据验证和序列化
 	for i,column := range table.Data.Columns {
-		if column.Id == table.Data.PrimaryKey.ColumnID ||
-			column.IsDeleted {//主键和删除列无需验证
-			continue
-		}
 		var data []byte
 		if i < len(row.Data) {//获取原行中列值
 			data = row.Data[i]
 		}
-		value,ok := rowJson[column.Name] //匹配待写入列值
-		if ok {//待写入列值序列化字节
-			var err error
-			data,err = util.FormatColumnData(column, value); if err != nil {
-				return err
+		if column.Id != table.Data.PrimaryKey.ColumnID && !column.IsDeleted { //过滤主键和删除列
+			value, ok := rowJson[column.Name] //匹配待写入列值
+			if ok { //待写入列值序列化字节
+				var err error
+				data, err = util.FormatColumnData(column, value);
+				if err != nil {
+					return err
+				}
 			}
-		}
-		if data == nil { //未设置值验证必填或设置默认值
-			if column.NotNull {//是否必填
-				return fmt.Errorf("table `%s` column `%s` value is not null", table.Data.Name, column.Name)
-			}else{//默认值
-				data = column.Default
-				ok = true // 有默认值设置为待写入
+			if data == nil { //未设置值验证必填或设置默认值
+				if column.NotNull { //是否必填
+					return fmt.Errorf("table `%s` column `%s` value is not null", table.Data.Name, column.Name)
+				} else { //默认值
+					data = column.Default
+					ok = true // 有默认值设置为待写入
+				}
 			}
-		}
-		//外建约束验证
-		if ok {//待写入列值需要验证
-			if err := operation.verifyForeignKey(table, column.Id, util.BytesToRowID(data)); err != nil {
-				return err
+			//外建约束验证
+			if ok { //待写入列值需要验证
+				if err := operation.verifyForeignKey(table, column.Id, util.BytesToRowID(data)); err != nil {
+					return err
+				}
 			}
 		}
 		//列数据组装

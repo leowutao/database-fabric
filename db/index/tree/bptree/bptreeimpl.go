@@ -10,35 +10,6 @@ import (
 	"gitee.com/bidpoc/database-fabric-cc/db/util"
 )
 
-// TODO 存在的问题
-// 1、外建索引中主键值过多，如叶子节点数据过大是否需要二级树来支撑
-// 解决方案：定义节点key值大小，根据节点容量/4，如果超过建立数据节点来存储--待实现
-// 2、唯一索引如何建立
-// 解决方案：key值不能过大，正常在20个字节左右最佳，如果过大节点会成倍增长，验证只要匹配到位置即返回，插入还是需要到叶子节点
-// 3、叶子节点之间建立双向链表-已解决
-// 解决方案：叶子节点增加指向左右兄弟的指针，在分裂之后需要更改左右兄弟的指向新节点的指针---待实现
-// 4、目前leveldb是否实现双向链表，是否支持排序
-// 解决方案：leveldb的memTable是双向链表，默认按照升序，如果降序需要反向扫描，但对应磁盘顺序读写的特性，反向性能会差
-// Fabric合约接口目前没有提供反向查询
-// 目前使用叶子节点双向链表解决，虽然反向查询可能慢，后期可以提供降序索引
-// 5、是否需要建立主键索引，此处修改比较大，目前大多数行数据在1-6K，可以单独存入一个key中
-// 解决方案：可以统一建立block来管理不同的数据，上限4kb，可以配置容量大小，
-// 6、表修改影响行和索引，如何设计表修改策略
-// 解决方案：表修改原有行和索引数据不做变更，新写入的行和索引需要按新的结构来，读取需要根据表最新结构来
-// 行读取：读取到的行需要按表结构格式化
-// 表更新：列类型转换需要查看当前列是否有值，有值无法转换，名字修改需要建立原列与新列关系以便老数据可以匹配到
-// 其实行数据可以使用列索引加值方式，这样可以解决名字和类型频繁变动不影响原数据
-
-// 重点：1、对所有的key类型归类，建立标识位来区分；2、所有动态key需要建立索引表来归类，由于组合key每次写入数据可能带入动态key会导致key过长，
-// 尽量减少key所占block空间；3、行记录block可以建立区间标记位来区分，主键索引可以直接指向此block的指针；
-// 4、历史记录需要按行纬度建立block
-
-// TODO 可以忽略的问题
-// 1、删除key，目前删除为逻辑删除，使用事务ID建立版本号，索引也不需要删除功能
-// 2、私有数据不存在版本号，如果不是私有数据是否能使用自带的版本号
-// 3、索引数据修改，如果按区块事务本身是排序的。不需要加锁处理，但同一个事务中批量处理如何一次性更改索引数据
-
-
 /////////////////// Service Function ///////////////////
 type BPTreeImpl struct {
 	storage *storage.BPTreeStorage
@@ -82,12 +53,8 @@ func (service *BPTreeImpl) createHead(key db.ColumnKey, treeType tree.TreeType, 
 	return head, nil
 }
 
-func (service *BPTreeImpl) getNodePosition(pointer tree.Pointer, parent *TreeNodePosition, position Position, cache *TreeNodeCache) (*TreeNodePosition, error) {
-	nodePosition, ok := cache.Read[pointer]
-	if ok {
-		return nodePosition, nil
-	}
-	nodeBytes, err := service.storage.GetNode(cache.Head.Key, util.Int64ToString(int64(pointer)))
+func (service *BPTreeImpl) getNode(pointer tree.Pointer, head *tree.TreeHead) (*tree.TreeNode, error) {
+	nodeBytes, err := service.storage.GetNode(head.Key, util.Int64ToString(int64(pointer)))
 	if err != nil {
 		return nil, err
 	}
@@ -98,10 +65,21 @@ func (service *BPTreeImpl) getNodePosition(pointer tree.Pointer, parent *TreeNod
 		if err := json.Unmarshal(nodeBytes, node); err != nil {
 			return nil, err
 		}
-		nodePosition = &TreeNodePosition{pointer, node, parent,nil,nil,position}
-		if cache.IsWrite {
-			cache.Read[pointer] = nodePosition
-		}
+		return node,nil
+	}
+}
+
+func (service *BPTreeImpl) getNodePosition(pointer tree.Pointer, parent *TreeNodePosition, position Position, cache *TreeNodeCache) (*TreeNodePosition, error) {
+	nodePosition, ok := cache.Read[pointer]
+	if ok {
+		return nodePosition, nil
+	}
+	node, err := service.getNode(pointer, cache.Head); if err != nil {
+		return nil, err
+	}
+	nodePosition = &TreeNodePosition{pointer, node, parent,nil,nil,position}
+	if cache.IsWrite {
+		cache.Read[pointer] = nodePosition
 	}
 	return nodePosition, nil
 }
@@ -186,6 +164,68 @@ func (service *BPTreeImpl) recursionNode(nodePosition *TreeNodePosition, key []b
 		}
 		return service.recursionNode(lower, key, cache)
 	}
+}
+
+/*
+	节点内部key区间查找，排序为升序
+	返回匹配的列表，是否全部匹配到(标记是否循环)
+*/
+func (service *BPTreeImpl) rangeSearchByAsc(node *tree.TreeNode, position Position, endKey []byte, size *tree.Pointer, list []tree.KV) (bool,error) {
+	if *size == 0 {//数量已经满足
+		return false,nil
+	}
+	isLoop := true
+	for i:=position;i<Position(len(node.Keys));i++{
+		key := node.Keys[i]
+		compare := -1 //默认为小于
+		if len(endKey) > 0 {//endKey值不为空比较区间是否超出
+			compare = bytes.Compare(key, endKey)
+		}
+		if compare != 1 { //小于或等于
+			convertValue,_ := ParseValue(node.Values[i])
+			list = append(list, tree.KV{Key:key,Value:convertValue})
+			*size--
+			if *size == 0 {//数量已经满足
+				return false,nil
+			}
+		}
+		if compare == 0 || compare == 1 { //等于或大于
+			isLoop = false
+			break
+		}
+	}
+	return isLoop,nil
+}
+
+/*
+	节点内部key区间查找，排序为降序
+	返回匹配的列表，是否全部匹配到(标记是否循环)
+*/
+func (service *BPTreeImpl) rangeSearchByDesc(node *tree.TreeNode, position Position, endKey []byte, size *tree.Pointer, list []tree.KV) (bool,error) {
+	if *size == 0 {//数量已经满足
+		return false,nil
+	}
+	isLoop := true
+	for i:=position;i>0;i--{
+		key := node.Keys[i]
+		compare := 1 //默认为大于
+		if len(endKey) > 0 {//endKey值不为空比较区间是否超出
+			compare = bytes.Compare(key, endKey)
+		}
+		if compare != -1 { //大于或等于
+			convertValue,_ := ParseValue(node.Values[i])
+			list = append(list, tree.KV{Key:key,Value:convertValue})
+			*size--
+			if *size == 0 {//数量已经满足
+				return false,nil
+			}
+		}
+		if compare == 0 || compare == -1 { //等于或小于
+			isLoop = false
+			break
+		}
+	}
+	return isLoop,nil
 }
 
 func (service *BPTreeImpl) printNode(nodePosition *TreeNodePosition, height int8, str []string, printData bool, cache *TreeNodeCache) ([]string, error) {
@@ -317,45 +357,91 @@ func (service *BPTreeImpl) Search(head *tree.TreeHead, key []byte) ([]byte, erro
 }
 
 /**
-查询key
+	区间查询，支持排序，分页
+	升序：startKey为空默认为最左，endKey为空默认为最右
+	降序：startKey为空默认为最右，endKey为空默认为最左
 */
-func (service *BPTreeImpl) SearchByRange(head *tree.TreeHead, startKey []byte, endKey []byte, size tree.Pointer) ([]tree.KV, error) {
-	if bytes.Compare(endKey, startKey) != 1 {
-		return nil,fmt.Errorf("startKey `%v` > endKey `%v`", startKey, endKey)
-	}
-	cache,err := createTreeNodeCache(head,false); if err != nil {
-		return nil,err
-	}
-	if TreeIsNull(head) {
-		return nil, fmt.Errorf("tree is null")
-	}
-	keyData, err := service.findPosition(startKey, cache)
-	if err != nil {
-		return nil, err
-	}
-
-	if keyData.KeyPosition.Compare == tree.CompareEq {
-		list := &[]tree.KV{}
-		rangePosition := keyData.KeyPosition.Position
-		nodePosition := keyData.KeyPosition.NodePosition
-		isNext := true
-		for isNext{
-			var err error
-			node := nodePosition.Node
-			isNext,err = nodePosition.rangeSearch(rangePosition, endKey, &size, list); if err != nil {
+func (service *BPTreeImpl) SearchByRange(head *tree.TreeHead, startKey []byte, endKey []byte, order db.OrderType, size tree.Pointer) ([]tree.KV, error) {
+	var err error
+	var node *tree.TreeNode
+	position := Position(0)
+	if order == db.ASC {
+		if len(startKey) == 0 {
+			node,err = service.getNode(head.FirstLeaf, head); if err != nil {
 				return nil,err
 			}
-			if isNext && node.Next > tree.Pointer(0) {
-				nodePosition, err = service.getNodePosition(node.Next, nodePosition.Parent, nodePosition.Position+1, cache)
-				if err != nil {
+			startKey = node.Keys[position]
+		}
+		if len(endKey) > 0 && bytes.Compare(endKey, startKey) != 1 {
+			return nil,fmt.Errorf("asc must startKey `%v` <= endKey `%v`", startKey, endKey)
+		}
+	}else{
+		if len(startKey) == 0 {
+			node,err = service.getNode(head.LastLeaf, head); if err != nil {
+				return nil,err
+			}
+			position = Position(len(node.Keys)-1)
+			startKey = node.Keys[position]
+		}
+		if  len(endKey) > 0 && bytes.Compare(startKey, endKey) != 1 {
+			return nil,fmt.Errorf("desc must endKey `%v` <= startKey `%v`", endKey, startKey)
+		}
+	}
+	if node == nil {
+		cache,err := createTreeNodeCache(head,false); if err != nil {
+			return nil,err
+		}
+		if TreeIsNull(head) {
+			return nil, fmt.Errorf("tree is null")
+		}
+		keyData, err := service.findPosition(startKey, cache)
+		if err != nil {
+			return nil, err
+		}
+		node = keyData.KeyPosition.NodePosition.Node
+		position = keyData.KeyPosition.Position
+		compare := keyData.KeyPosition.Compare
+		if compare == tree.CompareLt && order == db.DESC {//小于，降序需要往左移
+			position--
+		}else if compare == tree.CompareGt && order == db.ASC {//大于，升序需要往右移
+			position++
+		}
+	}
+	if node != nil {
+		var list []tree.KV
+		isLoop := true
+		for isLoop {
+			pointer := tree.Pointer(0)
+			if order == db.ASC {
+				pointer = node.Next
+				if position < Position(len(node.Keys)) {
+					isLoop,err = service.rangeSearchByAsc(node, position, endKey, &size, list[:]); if err != nil {
+						return nil,err
+					}
+				}
+			}else{
+				pointer = node.Prev
+				if position >= 0 {
+					isLoop,err = service.rangeSearchByDesc(node, position, endKey, &size, list[:]); if err != nil {
+						return nil,err
+					}
+				}
+			}
+			node = nil//查询完node设置为空释放内存
+			if isLoop && pointer > tree.Pointer(0) {
+				node,err = service.getNode(pointer, head); if err != nil {
 					return nil,err
 				}
-				rangePosition = 0
+				if order == db.ASC {
+					position = Position(0)
+				}else{
+					position = Position(len(node.Keys))
+				}
 			}else{
-				isNext = false
+				isLoop = false
 			}
 		}
-		return *list, nil
+		return list, nil
 	}
 	return nil, nil
 }

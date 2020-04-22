@@ -83,6 +83,38 @@ func GetNodeSize(node *tree.TreeNode) (int, error) {
 	return nodeSize, nil
 }
 
+//////////////////////////////// TreeNodeCache Function ////////////////////////////////
+func (cache *TreeNodeCache) createNode(nodePosition *TreeNodePosition) {
+	cache.setRead(nodePosition)
+	cache.setWrite(nodePosition)
+	cache.Head.NodeOrder = nodePosition.Pointer
+	cache.Head.NodeNum++
+}
+
+func (cache *TreeNodeCache) keyNumIncrement() {
+	cache.Head.KeyNum++
+}
+
+func (cache *TreeNodeCache) setRead(nodePosition *TreeNodePosition) {
+	cache.Read[nodePosition.Pointer] = nodePosition
+}
+
+/*
+	所有变更节点需要写入缓存，最后统一由缓存写入磁盘
+	每次写入缓存计算叶子头节点或叶子尾节点
+*/
+func (cache *TreeNodeCache) setWrite(nodePosition *TreeNodePosition) {
+	cache.Write[nodePosition.Pointer] = nodePosition
+	if nodePosition.Node.Type == tree.NodeTypeLeaf {//记录叶子头节点和叶子尾节点
+		if nodePosition.Prev == nil {
+			cache.Head.FirstLeaf = nodePosition.Pointer
+		}
+		if nodePosition.Next == nil {
+			cache.Head.LastLeaf = nodePosition.Pointer
+		}
+	}
+}
+
 //////////////////////////////// TreeNodePosition Function ////////////////////////////////
 func (nodePosition *TreeNodePosition) setPrev(prev *TreeNodePosition) {
 	nodePosition.Prev = prev
@@ -100,35 +132,7 @@ func (nodePosition *TreeNodePosition) createTreeKeyData(key []byte, value []byte
 	if nodePosition.Node.Type == tree.NodeTypeLeaf{
 		convertValue,valueType = ParseValue(value)
 	}
-	return TreeKeyData{TreeKeyPosition{nodePosition,position,compare},tree.KV{key,convertValue},valueType}, nil
-}
-
-/*
-	节点内部key区间查找
-	返回匹配的列表，是否全部匹配到
-*/
-func (nodePosition *TreeNodePosition) rangeSearch(position Position, endKey []byte, size *tree.Pointer, list *[]tree.KV) (bool,error) {
-	isNext := true
-	node := nodePosition.Node
-	for i:=position;i<Position(len(node.Keys));i++{
-		key := node.Keys[i]
-		compare := bytes.Compare(key, endKey)
-		if compare != 1 {
-			keyData,err := nodePosition.createTreeKeyData(key, node.Values[i], i, tree.CompareEq); if err != nil {
-				return false,err
-			}
-			*size--
-			if *size < 0 {
-				return false,nil
-			}
-			*list = append(*list, keyData.Data)
-		}
-		if compare == 0 || compare == 1 {
-			isNext = false
-			break
-		}
-	}
-	return isNext,nil
+	return TreeKeyData{TreeKeyPosition{nodePosition,position,compare},tree.KV{Key:key,Value:convertValue},valueType}, nil
 }
 
 /*
@@ -206,12 +210,9 @@ func createNodePosition(nodeType tree.NodeType, parent *TreeNodePosition, positi
 		return nil, fmt.Errorf("createNodePosition error, cache must set isWrite is true")
 	}
 	pointer := cache.Head.NodeOrder + 1
-	node := &tree.TreeNode{nodeType,tree.Pointer(0),tree.Pointer(0),keys, values}
+	node := &tree.TreeNode{Type:nodeType,Prev:tree.Pointer(0),Next:tree.Pointer(0),Keys:keys,Values:values}
 	nodePosition := &TreeNodePosition{pointer,node,parent,nil,nil,position}
-	cache.Read[pointer] = nodePosition
-	cache.Write[pointer] = nodePosition
-	cache.Head.NodeOrder = pointer
-	cache.Head.NodeNum++
+	cache.createNode(nodePosition)
 	return nodePosition, nil
 }
 
@@ -263,14 +264,6 @@ func (split *TreeSplit) GetIsSplit() (bool, error) {
 		}
 	}
 	return isSplit, nil
-}
-
-func (split *TreeSplit) write(nodePosition *TreeNodePosition) {
-	split.Cache.Write[nodePosition.Pointer] = nodePosition
-}
-
-func (split *TreeSplit) keyNumIncrement() {
-	split.Cache.Head.KeyNum++
 }
 
 /*
@@ -325,7 +318,7 @@ func (split *TreeSplit) splitToFirstNode() error {
 	if node.Type == tree.NodeTypeLeaf {
 		firstNodePosition.setNext(nodePosition)
 		nodePosition.setPrev(firstNodePosition)
-		split.write(nodePosition)
+		split.Cache.setWrite(nodePosition)
 	}
 
 	return nil
@@ -347,10 +340,10 @@ func (split *TreeSplit) splitToRightNode(rightKeys [][]byte, rightValues [][]byt
 		if nodePosition.Next != nil {
 			rightNodePosition.setNext(nodePosition.Next)
 			nodePosition.Next.setPrev(rightNodePosition)
-			split.write(nodePosition.Next)
+			split.Cache.setWrite(nodePosition.Next)
 		}
 		nodePosition.setNext(rightNodePosition)
-		split.write(nodePosition)
+		split.Cache.setWrite(nodePosition)
 	}
 
 	return rightNodePosition,nil
@@ -381,7 +374,7 @@ func (split *TreeSplit) splitToRootNode(rightNodePosition *TreeNodePosition) err
 	split.Cache.Head.Root = rootNodePosition.Pointer
 	split.Cache.Head.Height++
 	split.Cache.Head.KeyNum = split.Cache.Head.KeyNum + 2
-	split.write(nodePosition)
+	split.Cache.setWrite(nodePosition)
 	split.Child = nil
 	split.Current = nil
 	split.UpdateKV = nil
@@ -428,7 +421,7 @@ func (split *TreeSplit) splitNode() error {
 		if childKeyPosition != nil { //对应的子节点位置修改为0
 			childKeyPosition.Position = 0
 		}
-		split.keyNumIncrement()
+		split.Cache.keyNumIncrement()
 		return split.splitToFirstNode()
 	} else { //排序树和默认树都往右边分裂出新节点
 		isOrder := split.Cache.Head.Type == tree.TreeTypeAsc || split.Cache.Head.Type == tree.TreeTypeDesc
@@ -441,7 +434,7 @@ func (split *TreeSplit) splitNode() error {
 			}
 			rightKeys = [][]byte{kv.Key}
 			rightValues = [][]byte{kv.Value}
-			split.keyNumIncrement()
+			split.Cache.keyNumIncrement()
 		} else { //其他默认按1/2分裂
 			err := split.moveKey(); if err != nil {
 				return  err
@@ -465,7 +458,6 @@ func (split *TreeSplit) splitNode() error {
 			return split.splitToKey(rightNodePosition, isBinary)
 		}
 	}
-	return nil
 }
 
 /*
@@ -515,12 +507,12 @@ func (split *TreeSplit) moveKey() error {
 			node.Keys[position] = insertKV.Key
 			node.Values[position] = insertKV.Value
 		}
-		split.keyNumIncrement()
+		split.Cache.keyNumIncrement()
 		isWrite = true
 	}
 	if isWrite {
 		//缓存待写入节点
-		split.write(keyPosition.NodePosition)
+		split.Cache.setWrite(keyPosition.NodePosition)
 	}else{
 		return fmt.Errorf("moveKey write rule not found")
 	}

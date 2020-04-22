@@ -13,10 +13,9 @@ const (
 	NODE_POINTER_SIZE = 4        //节点指针大小,对应Pointer类型占用空间
 	NODE_NAME_SIZE = NODE_PREFIX_MAX_SIZE + NODE_POINTER_SIZE  //节点名字占用空间
 )
+var NODE_SPLIT_RULE int8 //节点分裂规则：1为关键字个数验证，否则为容量验证
 
 const (
-	NODE_SPLIT_RULE  = 0 //节点分裂规则：1为关键字个数验证，否则为容量验证
-
 	//容量值配置
 	MAX_NODE_SIZE     = 1024 * 4 //节点最大容量4KB
 	MAX_KEY_NUM       = 1000     //节点最大key数量，position为int16类型
@@ -76,6 +75,8 @@ type TreeHead struct {
 	NodeOrder Pointer    `json:"nodeOrder"` //当前节点累计自增序号
 	NodeNum   Pointer    `json:"nodeNum"`   //节点数量
 	KeyNum    int64    `json:"keyNum"`    //关键字数量
+	FirstLeaf Pointer  `json:"root"`      //叶子节点链表-头指针
+	LastLeaf  Pointer  `json:"root"`      //叶子节点链表-尾指针
 }
 
 //节点数据，节点存储标识规则为：索引前缀(前缀+表名+字段名)+排序值(自增)

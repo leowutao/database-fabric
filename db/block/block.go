@@ -30,11 +30,48 @@ const(
 )
 
 func (service *BlockService) QueryRowBlockID(table *db.TableData, rowID db.RowID) (db.BlockID,error) {
-	return service.indexService.GetPrimaryKeyIndexByLast(service.database.Id, table, rowID)
+	return service.indexService.GetPrimaryKeyIndex(service.database.Id, table, rowID)
 }
 
 func (service *BlockService) QueryRowIDByForeignKey(tableID db.TableID, foreignKey db.ForeignKey, referenceRowID db.RowID) ([]db.RowID,error) {
 	return service.indexService.GetForeignKeyIndex(service.database.Id, tableID, foreignKey, referenceRowID)
+}
+
+func (service *BlockService) QueryRowDataByRange(table *db.TableData, start db.RowID, end db.RowID, order db.OrderType, size int32) ([]*db.RowData,error) {
+	rowBlock,err := service.indexService.GetPrimaryKeyIndexByRange(service.database.Id, table, start, end, order, size); if err != nil {
+		return nil,err
+	}
+	var rows []*db.RowData
+	for rowID,blockID := range rowBlock {
+		if blockID == 0 {
+			rows = append(rows, &db.RowData{Id:rowID})
+		}else{
+			row,err := service.getRowData(table.Id, blockID, rowID); if err != nil {
+				return nil,err
+			}
+			rows = append(rows, row)
+		}
+	}
+	return rows,nil
+}
+
+func (service *BlockService) QueryRowDataHistoryByRange(table *db.TableData, rowID db.RowID, start db.Timestamp, end db.Timestamp, order db.OrderType, size int32) ([]*db.RowDataHistory,db.Total,error) {
+	total := db.Total(0)
+	blocks,err := service.indexService.GetPrimaryKeyIndexHistory(service.database.Id, table, rowID); if err != nil {
+		return nil,total,err
+	}
+	var rows []*db.RowDataHistory
+	for _,blockID := range blocks {
+		if blockID == 0 {
+			rows = append(rows, &db.RowDataHistory{Row:&db.RowData{Id:rowID}})
+		}else{
+			row,err := service.getRowDataHistory(table.Id, blockID, rowID); if err != nil {
+				return nil,total,err
+			}
+			rows = append(rows, row)
+		}
+	}
+	return rows,total,nil
 }
 
 func (service *BlockService) QueryRowData(table *db.TableData, rowID db.RowID) (*db.RowData,error) {
@@ -42,9 +79,38 @@ func (service *BlockService) QueryRowData(table *db.TableData, rowID db.RowID) (
 		return nil,err
 	}
 	if blockID == 0 {
+		return nil,nil
+	}
+	return service.getRowData(table.Id, blockID, rowID)
+}
+
+
+func (service *BlockService) getRowDataHistory(tableID db.TableID, blockID db.BlockID, rowID db.RowID) (*db.RowDataHistory,error) {
+	block,err := service.getBlockData(tableID, blockID); if err != nil {
 		return nil,err
 	}
-	return service.getRowData(table, blockID, rowID)
+	row,err := service.joinBlockRowData(tableID, blockID, rowID, block); if err != nil {
+		return nil,err
+	}
+	return &db.RowDataHistory{Tx:&block.TxData,Row:row},nil
+}
+
+func (service *BlockService) getRowData(tableID db.TableID, blockID db.BlockID, rowID db.RowID) (*db.RowData,error) {
+	return service.joinBlockRowData(tableID, blockID, rowID,nil)
+}
+
+func (service *BlockService) getBlockData(tableID db.TableID, blockID db.BlockID) (*db.BlockData,error) {
+	bytes,err := service.storage.GetBlockData(service.database.Id, tableID, blockID); if err != nil {
+		return nil,err
+	}
+	if len(bytes) == 0 {
+		return nil,fmt.Errorf("block `%d` is not found", blockID)
+	}
+	var block *db.BlockData
+	if err := json.Unmarshal(bytes, block); err != nil {
+		return nil,fmt.Errorf("block `%d` convert error `%s`", blockID, err.Error())
+	}
+	return block,nil
 }
 
 func (service *BlockService) joinRowData(row *db.RowData, splitRow *db.RowData, splitPosition int16) {
@@ -52,16 +118,12 @@ func (service *BlockService) joinRowData(row *db.RowData, splitRow *db.RowData, 
 	row.Data[index] = append(row.Data[index], splitRow.Data[0]...)
 }
 
-func (service *BlockService) getRowData(table *db.TableData, blockID db.BlockID, rowID db.RowID) (*db.RowData,error) {
-	bytes,err := service.storage.GetBlockData(service.database.Id, table.Id, blockID); if err != nil {
-		return nil,err
-	}
-	if len(bytes) == 0 {
-		return nil,fmt.Errorf("block `%d` is not found", blockID)
-	}
-	var block db.BlockData
-	if err := json.Unmarshal(bytes, &block); err != nil {
-		return nil,fmt.Errorf("block `%d` convert error `%s`", blockID, err.Error())
+func (service *BlockService) joinBlockRowData(tableID db.TableID, blockID db.BlockID, rowID db.RowID, block *db.BlockData) (*db.RowData,error) {
+	if block == nil || block.Id == 0 {
+		var err error
+		block,err = service.getBlockData(tableID, blockID); if err != nil {
+			return nil,err
+		}
 	}
 	rowIndex := -1
 	for i,row := range block.Rows {
@@ -75,7 +137,7 @@ func (service *BlockService) getRowData(table *db.TableData, blockID db.BlockID,
 	}
 	row := &block.Rows[rowIndex]
 	if len(block.Rows) == (rowIndex+1) && block.SplitPosition > 0 {
-		splitRow,err := service.getRowData(table, blockID+1, rowID); if err != nil {
+		splitRow,err := service.joinBlockRowData(tableID, blockID+1, rowID,nil); if err != nil {
 			return nil,err
 		}
 		service.joinRowData(row, splitRow, block.SplitPosition)
@@ -118,7 +180,7 @@ func (service *BlockService) splitRowData(use *int, row db.RowData, splitRows *[
 	}
 }
 
-func (service *BlockService) SetBlockData(table *db.TableData, rows []*db.RowData) error {
+func (service *BlockService) SetBlockData(table *db.TableData, tally *db.TableTally, rows []*db.RowData) error {
 	txID,timestamp,err := service.storage.GetTxID(); if err != nil {
 		return err
 	}
@@ -126,19 +188,19 @@ func (service *BlockService) SetBlockData(table *db.TableData, rows []*db.RowDat
 	var splitRows []db.RowData
 	var blocks []db.BlockData
 	for _,row := range rows {
-		service.rowTally(table, row.Id, row.Op)
+		service.rowTally(tally, row)
 		service.splitRowData(&use, *row, &splitRows, &blocks)
 	}
 	if len(splitRows) > 0 {
 		blocks = append(blocks, db.BlockData{Rows:splitRows})
 	}
-	id := table.Tally.Block
+	id := tally.Block
 	rowIDMap := map[db.RowID]db.BlockID{}
 	for _,block := range blocks {
 		id++
 		block.Id = id
 		block.TxID = txID
-		block.Timestamp = timestamp
+		block.Time = db.Timestamp(timestamp)
 		bytes,err := util.ConvertJsonBytes(block); if err != nil {
 			return err
 		}
@@ -157,7 +219,7 @@ func (service *BlockService) SetBlockData(table *db.TableData, rows []*db.RowDat
 			}
 		}
 	}
-	table.Tally.Block = id
+	tally.Block = id
 	return nil
 }
 
@@ -179,20 +241,18 @@ func (service *BlockService) addIndex(table *db.TableData, blockID db.BlockID, r
 	return nil
 }
 
-func (service *BlockService) rowTally(table *db.TableData, increment db.RowID, op db.OpType) {
-	if op == db.ADD {
-		table.Tally.AddRow = table.Tally.AddRow + 1
-		table.Tally.Row = table.Tally.Row + 1
-		if increment > table.Tally.Increment {
-			table.Tally.Increment = increment
+func (service *BlockService) rowTally(tally *db.TableTally, row *db.RowData) {
+	if row.Op == db.ADD {
+		tally.AddRow++
+		if row.Id == 0 {//自增
+			tally.Increment++
+			row.Id = tally.Increment
+		}else if row.Id > tally.Increment {//自增计数更新
+			tally.Increment = row.Id
 		}
-	}else if op == db.UPDATE {
-		table.Tally.UpdateRow = table.Tally.UpdateRow + 1
-		if increment > table.Tally.Increment {
-			table.Tally.Increment = increment
-		}
-	}else if op == db.DELETE {
-		table.Tally.DelRow = table.Tally.DelRow + 1
-		table.Tally.Row = table.Tally.Row - 1
+	}else if row.Op == db.UPDATE {
+		tally.UpdateRow++
+	}else if row.Op == db.DELETE {
+		tally.DelRow++
 	}
 }

@@ -30,7 +30,7 @@ func ValidateExists(tableName string, iDatabase db.DatabaseInterface) error {
 
 func ValidateNullOfID(tableName string, iDatabase db.DatabaseInterface) (db.TableID,error) {
 	if tableName == "" {
-		return nil,fmt.Errorf("tableName is null")
+		return 0,fmt.Errorf("tableName is null")
 	}
 	tableID,err := iDatabase.GetTableID(tableName); if err != nil {
 		return tableID,err
@@ -51,10 +51,10 @@ func ValidateNullOfData(tableName string, iDatabase db.DatabaseInterface) (*db.T
 	if data.Columns == nil && len(data.Columns) == 0 {
 		return nil,fmt.Errorf("table `%s` is null", tableName)
 	}
-	primaryName := data.Columns[data.PrimaryKey.ColumnID-1].Name
+	primary := data.Columns[data.PrimaryKey.ColumnID-1]
 	foreignKeys := db.ForeignKeys{}
 	for _,foreignKey := range data.ForeignKeys {
 		foreignKeys[foreignKey.ColumnID] = &foreignKey
 	}
-	return &db.Table{Data:data,PrimaryName:primaryName,ForeignKeys:foreignKeys},nil
+	return &db.Table{Data:data,Primary:&primary,ForeignKeys:foreignKeys},nil
 }

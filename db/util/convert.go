@@ -33,7 +33,7 @@ func PageSize(pageSize int32) int32 {
 	return pageSize
 }
 
-func Pagination(pageSize int32, total int64, list []interface{}) db.Pagination {
+func Pagination(pageSize int32, total db.Total, list []db.JsonData) db.Pagination {
 	return db.Pagination{PageSize:PageSize(pageSize), Total:total, List:list}
 }
 
@@ -399,6 +399,39 @@ func FormatColumnData(column db.Column, value interface{}) ([]byte,error) {
 			return nil, fmt.Errorf("column `%s` datatype `%s` error", column.Name, vType)
 		}
 	}
+}
+
+
+func ParseRowData(table *db.Table, rowData *db.RowData) (db.JsonData,error) {
+	var err error
+	dataLength := 0
+	if rowData != nil {
+		dataLength = len(rowData.Data)
+	}
+	row := db.JsonData{}
+	for i,column := range table.Data.Columns {
+		if column.IsDeleted {
+			continue
+		}
+		var data []byte
+		if rowData != nil && i < dataLength {
+			data = rowData.Data[i]
+		}else{
+			data = column.Default
+		}
+		var value interface{}
+		if len(data) == 0 {
+			value,err = ParseColumnDataByNull(column); if err != nil {
+				return nil,err
+			}
+		}else {
+			value,err = ParseColumnData(column, data); if err != nil {
+				return nil,err
+			}
+		}
+		row[column.Name] = value
+	}
+	return row,nil
 }
 
 func ParseColumnDataByNull(column db.Column) (interface{},error) {

@@ -15,22 +15,32 @@ func NewTableOperation(iDatabase db.DatabaseInterface) *TableOperation {
 	return &TableOperation{iDatabase}
 }
 
+type Data struct {
+	Name string `json:"name"`
+	Columns []db.ColumnData `json:"columns"`
+	PrimaryKey PrimaryKey `json:"primaryKey"`
+	ForeignKeys []ForeignKey `json:"foreignKeys"`
+}
+
+type PrimaryKey struct {
+	ColumnName string `json:"columnName"`
+	AutoIncrement bool `json:"autoIncrement"`
+}
+
+type ForeignKey struct {
+	ColumnName string `json:"columnName"`
+	Reference string `json:"reference"`
+}
+
 ////////////////// Public Function //////////////////
 func (operation *TableOperation) Create(jsonString string) (db.TableID,error) {
-	tableData,err := operation.FormatTableData(jsonString, db.ADD); if err != nil {
+	tableData,err := operation.FormatTableData(jsonString); if err != nil {
 		return 0,fmt.Errorf("format table %s", err)
 	}
 	return operation.iDatabase.CreateTableData(tableData)
 }
 
-func (operation *TableOperation) Update(jsonString string) (db.TableID,error) {
-	tableData,err := operation.FormatTableData(jsonString, db.UPDATE); if err != nil {
-		return 0,fmt.Errorf("format table %s", err)
-	}
-	return tableData.Id,operation.iDatabase.UpdateTableData(tableData)
-}
-
-func (operation *TableOperation) DelTable(tableName string) (db.TableID,error)  {
+func (operation *TableOperation) DeleteTable(tableName string) (db.TableID,error)  {
 	if tableName == "" {
 		return 0,fmt.Errorf("tableName is null")
 	}
@@ -55,85 +65,86 @@ func (operation *TableOperation) QueryTableData(tableName string) ([]byte,error)
 	return util.ConvertJsonBytes(*tableData)
 }
 
-func (operation *TableOperation) FormatTableData(jsonString string, op db.OpType) (*db.TableData,error) {
-	tableID := db.TableID(0)
+func (operation *TableOperation) ParseTableData(table *db.Table) (Data,error) {
+	data := Data{}
+	data.Name = table.Data.Name
+	columnMaps := map[db.ColumnID]string{}
+	for _,column := range table.Data.Columns {
+		if column.IsDeleted {
+			continue
+		}
+		data.Columns = append(data.Columns, column.ColumnData)
+		columnMaps[column.Id] = column.Name
+	}
+	data.PrimaryKey = PrimaryKey{ColumnName:table.Primary.Name,AutoIncrement:table.Data.PrimaryKey.AutoIncrement}
+	for _,foreignKey := range table.Data.ForeignKeys {
+		columnName,ok := columnMaps[foreignKey.ColumnID]
+		if ok {
+			tableName,err := operation.iDatabase.GetTableName(foreignKey.Reference.TableID); if err != nil {
+				return data,err
+			}
+			data.ForeignKeys = append(data.ForeignKeys, ForeignKey{ColumnName:columnName,Reference:tableName})
+		}
+	}
+	return data,nil
+}
+
+func (operation *TableOperation) FormatTableData(jsonString string) (*db.TableData,error) {
 	if jsonString == "" {
-		return tableID,fmt.Errorf("table json is null")
+		return nil,fmt.Errorf("table json is null")
 	}
-	var tableJson db.JsonData
-	if err := json.Unmarshal([]byte(jsonString), &tableJson); err != nil {
-		return tableID,fmt.Errorf("table json %s", err)
+	var data Data
+	if err := json.Unmarshal([]byte(jsonString), &data); err != nil {
+		return nil,fmt.Errorf("table json %s", err)
 	}
-
-	if table.Name == "" {
-		return fmt.Errorf("name is null")
+	if data.Name == "" {
+		return nil,fmt.Errorf("name is null")
 	}
-	if err := ValidateExists(table.Name, operation.iDatabase); err != nil {
-		return "",err
+	if len(data.Columns) == 0 {
+		return nil,fmt.Errorf("columns is null")
 	}
-	if table.Columns == nil || len(table.Columns) == 0 {
-		return fmt.Errorf("columns key is null")
+	if data.PrimaryKey.ColumnName == "" {
+		return nil,fmt.Errorf("primaryKey column is null")
 	}
-	if table.PrimaryKey.ColumnId == 0 {
-		return fmt.Errorf("primaryKey column is null")
+	if err := ValidateExists(data.Name, operation.iDatabase); err != nil {
+		return nil,err
 	}
-
-	if table.PrimaryKey.AutoIncrement {
-		key := table.PrimaryKey.Column
-		column,err := util.VerifyColumn(table.Columns, key, table.Name, key); if err != nil {
-			return fmt.Errorf("primaryKey keys `%s` not found in columns", key)
+	tableData := &db.TableData{Name:data.Name}
+	var primary *db.Column
+	columnMaps := map[string]*db.Column{}
+	for i,c := range data.Columns {
+		_,ok := columnMaps[c.Name]
+		if ok {
+			return nil,fmt.Errorf("column `%s` is repeat", c.Name)
 		}
-		if column.Type != db.INT {
-			return fmt.Errorf("primaryKey autoIncrement keys `%s` type must is INT", key)
+		id := db.ColumnID(i+1)
+		column := &db.Column{Id:id,ColumnData:c}
+		if column.Name == data.PrimaryKey.ColumnName {
+			primary = column
+			tableData.PrimaryKey = db.PrimaryKey{ColumnID:id,AutoIncrement:data.PrimaryKey.AutoIncrement}
 		}
-	}else{
-		key := table.PrimaryKey.Column
-		column,err := util.VerifyColumn(table.Columns, key, table.Name, key); if err != nil {
-			return fmt.Errorf("primaryKey keys `%s` not found in columns", key)
+		columnMaps[column.Name] = column
+		tableData.Columns = append(tableData.Columns, *column)
+	}
+	if primary == nil {
+		return nil,fmt.Errorf("primary `%s` not found in columns", data.PrimaryKey.ColumnName)
+	}
+	if primary.Type != db.INT {
+		return nil,fmt.Errorf("primary `%s` type must is INT", primary.Name)
+	}
+	for _,key := range data.ForeignKeys {
+		column,ok := columnMaps[key.ColumnName]
+		if !ok {
+			return nil,fmt.Errorf("foreign `%s` not found in columns", column.Name)
 		}
-		if column.Type != db.INT && column.Type != db.VARCHAR {
-			return fmt.Errorf("primaryKey keys `%s` type must is INT or VARCHAR", key)
+		table,err := ValidateNullOfData(key.Reference, operation.iDatabase); if err != nil {
+			return nil,fmt.Errorf("foreign error `%s`", err.Error())
 		}
-	}
-
-	if table.ForeignKeys != nil {
-		for _,foreignKey := range table.ForeignKeys {
-			key := foreignKey.Column
-			_,err := util.VerifyColumn(table.Columns, key, table.Name, key); if err != nil {
-				return fmt.Errorf("foreignKey key `%s` not found in columns", key)
-			}
-			relationTable,err := operation.ValidateQueryTableIsNotNull(foreignKey.Reference.Table); if err != nil {
-				return err
-			}
-			match,relationForeignKey := util.MatchForeignKeyByTable(relationTable.ForeignKeys, table.Name); if match {
-				return fmt.Errorf("table `%s` and `%s` foreignKey realtion exists", table.Name, relationForeignKey.Reference.Table)
-			}
+		if column.Type != table.Primary.Type {
+			return nil,fmt.Errorf("foreign column type error")
 		}
+		foreignKey := db.ForeignKey{ColumnID:column.Id,Reference:db.ReferenceKey{ColumnID:table.Primary.Id,TableID:table.Data.Id}}
+		tableData.ForeignKeys = append(tableData.ForeignKeys, foreignKey)
 	}
-
-	var newColumns []db.Column
-	for _,column := range table.Columns {
-		value,err := util.ConvertColumnData(column, column.Default); if err != nil {
-			return err
-		}
-
-		column.Default = value
-		newColumns = append(newColumns, column)
-	}
-
-	table.Columns = newColumns
-	tableByte,err := util.ConvertJsonBytes(table)
-	if err != nil {
-		return err
-	}
-
-	if err = operation.SetForeignKey(table, indexoperation); err != nil {
-		return err
-	}
-
-	if err = operation.storage.PutTableData(operation.database, table.Id, tableByte); err != nil {
-		return err
-	}
-
-	return nil
+	return tableData,nil
 }

@@ -74,42 +74,46 @@ func (storage *CommonStorage) getChainDataKey() string {
 	return storage.state.PrefixAddKey(db.ChainPrefix, string(db.ChainKeyType))
 }
 
-func (storage *CommonStorage) getDataBaseDataKey(database db.DataBaseID) string {
+func (storage *CommonStorage) getDataBaseDataKey(database db.DatabaseID) string {
 	return storage.state.PrefixAddKey(string(db.DataBaseKeyType), string(database))
 }
 
-func (storage *CommonStorage) getRelationDataKey(database db.DataBaseID) string {
+func (storage *CommonStorage) getRelationDataKey(database db.DatabaseID) string {
 	return storage.state.PrefixAddKey(string(db.RelationKeyType), string(database))
 }
 
-func (storage *CommonStorage) getTableDataKey(database db.DataBaseID, table db.TableID) string {
+func (storage *CommonStorage) getTallyDataKey(database db.DatabaseID, table db.TableID) string {
+	return storage.state.PrefixAddKey(string(db.TallyKeyType), storage.state.CompositeKey(string(database), string(table)))
+}
+
+func (storage *CommonStorage) getTableDataKey(database db.DatabaseID, table db.TableID) string {
 	return storage.state.PrefixAddKey(string(db.TableKeyType), storage.state.CompositeKey(string(database), string(table)))
 }
 
-func (storage *CommonStorage) getBlockDataKey(database db.DataBaseID, table db.TableID, block db.BlockID) string {
+func (storage *CommonStorage) getBlockDataKey(database db.DatabaseID, table db.TableID, block db.BlockID) string {
 	return storage.state.PrefixAddKey(string(db.BlockKeyType), storage.state.CompositeKey(string(database), string(table), string(block)))
 }
 
-func (storage *TableStorage) createDataBase(name string) (db.DataBaseID,error) {
+func (storage *TableStorage) createDataBase(name string) (db.DatabaseID,error) {
 	id,err := storage.addName(storage.getChainDataKey(), name)
-	return db.DataBaseID(id),err
+	return db.DatabaseID(id),err
 }
 
-func (storage *CommonStorage) getDataBase(name string) (db.DataBaseID,error) {
+func (storage *CommonStorage) getDataBase(name string) (db.DatabaseID,error) {
 	id,err := storage.findName(storage.getChainDataKey(), name)
-	return db.DataBaseID(id),err
+	return db.DatabaseID(id),err
 }
 
-func (storage *CommonStorage) getAllTable(database db.DataBaseID) ([]string,error) {
+func (storage *CommonStorage) getAllTable(database db.DatabaseID) ([]string,error) {
 	return storage.getNames(storage.getDataBaseDataKey(database))
 }
 
-func (storage *CommonStorage) createTable(database db.DataBaseID, name string) (db.TableID,error) {
+func (storage *CommonStorage) createTable(database db.DatabaseID, name string) (db.TableID,error) {
 	id,err := storage.addName(storage.getDataBaseDataKey(database), name)
 	return db.TableID(id),err
 }
 
-func (storage *CommonStorage) updateTable(database db.DataBaseID, table db.TableID, name string) error {
+func (storage *CommonStorage) updateTable(database db.DatabaseID, table db.TableID, name string) error {
 	key := storage.getDataBaseDataKey(database)
 	names,err := storage.getNames(key); if err != nil {
 		return err
@@ -121,16 +125,16 @@ func (storage *CommonStorage) updateTable(database db.DataBaseID, table db.Table
 	return storage.putNames(key, names)
 }
 
-func (storage *CommonStorage) deleteTable(database db.DataBaseID, table db.TableID) error {
+func (storage *CommonStorage) deleteTable(database db.DatabaseID, table db.TableID) error {
 	return storage.updateTable(database, table,"")
 }
 
-func (storage *CommonStorage) getTable(database db.DataBaseID, name string) (db.TableID,error) {
+func (storage *CommonStorage) getTable(database db.DatabaseID, name string) (db.TableID,error) {
 	id,err := storage.findName(storage.getDataBaseDataKey(database), name)
 	return db.TableID(id),err
 }
 
-func (storage *CommonStorage) getTableName(database db.DataBaseID, table db.TableID) (string,error) {
+func (storage *CommonStorage) getTableName(database db.DatabaseID, table db.TableID) (string,error) {
 	key := storage.getDataBaseDataKey(database)
 	names,err := storage.getNames(key); if err != nil {
 		return "",err
@@ -152,35 +156,43 @@ func NewDatabaseStorage(state state.ChainCodeState) *DatabaseStorage {
 	return storage
 }
 
-func (storage *DatabaseStorage) GetRelationData(database db.DataBaseID) ([]byte,error) {
+func (storage *DatabaseStorage) GetRelationData(database db.DatabaseID) ([]byte,error) {
 	return storage.state.GetKey(storage.getRelationDataKey(database))
 }
 
-func (storage *DatabaseStorage) PutRelationData(database db.DataBaseID, value []byte) error {
+func (storage *DatabaseStorage) PutRelationData(database db.DatabaseID, value []byte) error {
 	return storage.state.PutOrDelKey(storage.getRelationDataKey(database), value, db.SetState)
 }
 
-func (storage *DatabaseStorage) CreateTable(database db.DataBaseID, tableName string) (db.TableID,error) {
+func (storage *DatabaseStorage) GetTableTally(database db.DatabaseID, tableID db.TableID) ([]byte,error) {
+	return storage.state.GetKey(storage.getTallyDataKey(database, tableID))
+}
+
+func (storage *DatabaseStorage) PutTableTally(database db.DatabaseID, tableID db.TableID, value []byte) error {
+	return storage.state.PutOrDelKey(storage.getTallyDataKey(database, tableID), value, db.SetState)
+}
+
+func (storage *DatabaseStorage) CreateTable(database db.DatabaseID, tableName string) (db.TableID,error) {
 	return storage.createTable(database, tableName)
 }
 
-func (storage *DatabaseStorage) UpdateTable(database db.DataBaseID, tableID db.TableID, name string) error {
+func (storage *DatabaseStorage) UpdateTable(database db.DatabaseID, tableID db.TableID, name string) error {
 	return storage.updateTable(database, tableID, name)
 }
 
-func (storage *DatabaseStorage) DeleteTable(database db.DataBaseID, tableID db.TableID) error {
+func (storage *DatabaseStorage) DeleteTable(database db.DatabaseID, tableID db.TableID) error {
 	return storage.deleteTable(database, tableID)
 }
 
-func (storage *DatabaseStorage) GetTable(database db.DataBaseID, name string) (db.TableID,error) {
+func (storage *DatabaseStorage) GetTable(database db.DatabaseID, name string) (db.TableID,error) {
 	return storage.getTable(database, name)
 }
 
-func (storage *DatabaseStorage) GetTableName(database db.DataBaseID, tableID db.TableID) (string,error) {
+func (storage *DatabaseStorage) GetTableName(database db.DatabaseID, tableID db.TableID) (string,error) {
 	return storage.getTableName(database, tableID)
 }
 
-func (storage *DatabaseStorage) GetAllTable(database db.DataBaseID) ([]string,error) {
+func (storage *DatabaseStorage) GetAllTable(database db.DatabaseID) ([]string,error) {
 	return storage.getAllTable(database)
 }
 
@@ -195,11 +207,11 @@ func NewTableStorage(state state.ChainCodeState) *TableStorage {
 	return storage
 }
 
-func (storage *TableStorage) GetTableData(database db.DataBaseID, table db.TableID) ([]byte,error) {
+func (storage *TableStorage) GetTableData(database db.DatabaseID, table db.TableID) ([]byte,error) {
 	return storage.state.GetKey(storage.getTableDataKey(database, table))
 }
 
-func (storage *TableStorage) PutTableData(database db.DataBaseID, table db.TableID, value []byte) error {
+func (storage *TableStorage) PutTableData(database db.DatabaseID, table db.TableID, value []byte) error {
 	return storage.state.PutOrDelKey(storage.getTableDataKey(database, table), value, db.SetState)
 }
 
@@ -216,11 +228,11 @@ func NewBlockStorage(state state.ChainCodeState) *BlockStorage {
 	return storage
 }
 
-func (storage *BlockStorage) GetBlockData(database db.DataBaseID, table db.TableID, block db.BlockID) ([]byte,error) {
+func (storage *BlockStorage) GetBlockData(database db.DatabaseID, table db.TableID, block db.BlockID) ([]byte,error) {
 	return storage.state.GetKey(storage.getBlockDataKey(database, table, block))
 }
 
-func (storage *BlockStorage) PutBlockData(database db.DataBaseID, table db.TableID, block db.BlockID, value []byte) error {
+func (storage *BlockStorage) PutBlockData(database db.DatabaseID, table db.TableID, block db.BlockID, value []byte) error {
 	return storage.state.PutOrDelKey(storage.getBlockDataKey(database, table, block), value, db.SetState)
 }
 

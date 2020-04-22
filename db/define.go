@@ -20,14 +20,10 @@ const (
 	ChainKeyType KeyType = iota
 	DataBaseKeyType
 	TableKeyType
+	TallyKeyType
 	RelationKeyType
 	BlockKeyType
 	IndexKeyType
-	RowKeyType
-	SchemaKeyType
-	TallyKeyType
-	ForeignKeyKeyType
-	HistoryKeyType
 )
 
 type DataType int8
@@ -52,30 +48,57 @@ const (
 	DelState
 )
 
+type OrderType = int8
+const (
+	ASC OrderType = iota
+	DESC
+)
+
 //以下定义每个类型索引位置，使用ID别名，值从1开始，即对应索引为i-1
-type DataBaseID = int8
+type DatabaseID = int8
 type TableID = int16
 type BlockID = int32
 type RowID = int64
 type ColumnID = int8
 type RelationKeyID = int16
 
+//表集合与表外键包装结构
 type TableNames = map[TableID]string
-type JsonData = map[string]interface{}
 type ForeignKeys = map[ColumnID]*ForeignKey
 
+//行与记录块包装结构
+type RowBlockID = map[RowID]BlockID
+type RowHistoryBlockID = map[RowID][]BlockID
+type RowDataHistory struct {
+	Tx *TxData
+	Row *RowData
+}
 
+//时间戳类型
+type Timestamp int64
+//记录总数
+type Total = int64
+
+//接收外部任何kv结构数据
+type JsonData = map[string]interface{}
+
+//列键数据
 type ColumnKey struct {
-	Database DataBaseID `json:"database"`
+	Database DatabaseID `json:"database"`
 	Table TableID `json:"table"`
 	Column ColumnID `json:"column"`
+}
+
+//事务数据
+type TxData struct {
+	TxID string `json:"txID"` //事务ID
+	Time Timestamp `json:"time"` //事务时间戳
 }
 
 //行块数据(行集合数据)
 type BlockData struct {
 	Id BlockID `json:"id"`
-	TxID string `json:"txID"` //事务ID
-	Timestamp int64 `json:"timestamp"` //事务时间戳
+	TxData
 	Rows []RowData `json:"rows"` //行数据列表
 	SplitPosition int16 `json:"splitPosition"` //记录行列表最后一条拆分行数据位置(从1开始)，方便多个块之间行数据连接
 }
@@ -84,12 +107,12 @@ type BlockData struct {
 type RowData struct {
 	Id RowID `json:"id"` //行ID
 	Op OpType `json:"op"` //操作类型
-	Data [][]byte `json:"data"` //行数据，代表多列数据列表，列表中索引与表设置列的位置对应
+	Data [][]byte `json:"data"` //行数据，代表多列数据列表，与表列对齐
 }
 
 type TableTally struct {
+	tableID TableID `json:"tableID"`
 	Increment RowID `json:"increment"`
-	Row RowID `json:"row"`
 	AddRow RowID `json:"addRow"`
 	UpdateRow RowID `json:"updateRow"`
 	DelRow RowID `json:"delRow"`
@@ -97,13 +120,13 @@ type TableTally struct {
 }
 
 type DataBase struct {
-	Id DataBaseID `json:"id"`
+	Id DatabaseID `json:"id"`
 	Relation *Relation `json:"relation"`
 }
 
 type Table struct {
 	Data *TableData `json:"data"`
-	PrimaryName string `json:"primaryName"`
+	Primary *Column `json:"primary"`
 	ForeignKeys ForeignKeys `json:"foreignKeys"`
 }
 
@@ -115,20 +138,22 @@ type TableData struct {
 	Id TableID `json:"id"`
 	Name string `json:"name"`
 	Columns []Column `json:"columns"`
-	DelColumns []ColumnID `json:"delColumns"`
 	PrimaryKey PrimaryKey `json:"primaryKey"`
 	ForeignKeys []ForeignKey `json:"foreignKeys"`
-	Tally TableTally `json:"tally"`
 }
 
 type Column struct {
 	Id ColumnID `json:"id"`
+	ColumnData
 	IsDeleted bool `json:"isDeleted"`
+	Order int8 `json:"order"`
+}
+
+type ColumnData struct {
 	Name string `json:"name"`
 	Type DataType `json:"type"`
 	Default []byte `json:"default"`
 	NotNull bool `json:"notNull"`
-	Order int8 `json:"order"`
 	Desc string `json:"desc"`
 }
 
@@ -172,8 +197,8 @@ type Schema struct {
 
 type Pagination struct {
 	PageSize int32 `json:"pageSize"`
-	Total RowID `json:"total"`
-	List []interface{} `json:"list"`
+	Total Total `json:"total"`
+	List []JsonData `json:"list"`
 }
 
 func (relationKey *RelationKey) Equal(key RelationKey) bool {

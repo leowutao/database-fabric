@@ -19,7 +19,7 @@ func TestBPTree(t *testing.T){
 
 	//树基本验证
 	{
-		key := db.ColumnKey{db.DataBaseID(1),db.TableID(1),db.ColumnID(1)}
+		key := db.ColumnKey{db.DatabaseID(1),db.TableID(1),db.ColumnID(1)}
 		treeHead,err := bPTreeImpl.CreateHead(key, tree.TreeTypeAsc); if err != nil {
 			panic(err.Error())
 		}
@@ -31,7 +31,7 @@ func TestBPTree(t *testing.T){
 			}
 		}
 		assert.EqualValues(t, treeHead.NodeOrder,treeHead.NodeNum,"node num error")
-		list, err := bPTreeImpl.SearchByRange(treeHead, tree.PointerToBytes(1), tree.PointerToBytes(1000),1000); if err != nil {
+		list, err := bPTreeImpl.SearchByRange(treeHead, tree.PointerToBytes(1), tree.PointerToBytes(1000), db.ASC,1000); if err != nil {
 			panic(err.Error())
 		}
 		assert.EqualValues(t, len(list),1000,"key num error")

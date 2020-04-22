@@ -8,6 +8,7 @@ import (
 	"gitee.com/bidpoc/database-fabric-cc/db/storage"
 	"gitee.com/bidpoc/database-fabric-cc/db/storage/state"
 	"gitee.com/bidpoc/database-fabric-cc/db/table"
+	"gitee.com/bidpoc/database-fabric-cc/db/util"
 )
 
 type DatabaseImpl struct {
@@ -37,6 +38,49 @@ func (service *DatabaseImpl) getBlockService() *block.BlockService {
 }
 
 ////////////////////////// impl database interface //////////////////////////
+
+
+func (service *DatabaseImpl) GetRelation() (*db.Relation,error) {
+	relation := &db.Relation{}
+	relationBytes,err := service.storage.GetRelationData(service.database.Id)
+	if err != nil {
+		return nil,err
+	}
+	if len(relationBytes) > 0 {
+		err = json.Unmarshal(relationBytes, relation)
+		if err != nil {
+			return nil,err
+		}
+	}
+	return relation,nil
+}
+
+func (service *DatabaseImpl) GetRelationKeysByReference(reference db.ReferenceKey) ([]db.RelationKey,error) {
+	return GetRelationKeysByReference(reference, service.database.Relation)
+}
+
+func (service *DatabaseImpl) GetTableTally(tableID db.TableID) (*db.TableTally,error) {
+	value,err := service.storage.GetTableTally(service.database.Id, tableID); if err != nil {
+		return nil,err
+	}
+	tally := &db.TableTally{}
+	if len(value) > 0 {
+		err = json.Unmarshal(value, tally)
+		if err != nil {
+			return nil,err
+		}
+	}
+	return tally,nil
+}
+
+func (service *DatabaseImpl) GetTableName(tableID db.TableID) (string,error) {
+	return service.storage.GetTableName(service.database.Id, tableID)
+}
+
+func (service *DatabaseImpl) GetTableID(name string) (db.TableID,error) {
+	return service.storage.GetTable(service.database.Id, name)
+}
+
 
 func (service *DatabaseImpl) CreateTableData(table *db.TableData) (db.TableID,error) {
 	tableID,err := service.storage.CreateTable(service.database.Id, table.Name); if err != nil {
@@ -82,13 +126,19 @@ func (service *DatabaseImpl) QueryTableDataByID(tableID db.TableID) (*db.TableDa
 	return service.getTableService().QueryTable(tableID)
 }
 
-func (service *DatabaseImpl) GetTableName(tableID db.TableID) (string,error) {
-	return service.storage.GetTableName(service.database.Id, tableID)
+func (service *DatabaseImpl) AddRowData(table *db.TableData, rows []*db.RowData) error {
+	tally,err := service.GetTableTally(table.Id); if err != nil {
+		return err
+	}
+	if err := service.getBlockService().SetBlockData(table, tally, rows); err != nil {
+		return err
+	}
+	value,err := util.ConvertJsonBytes(*tally); if err != nil {
+		return err
+	}
+	return service.storage.PutTableTally(service.database.Id, table.Id, value)
 }
 
-func (service *DatabaseImpl) GetTableID(name string) (db.TableID,error) {
-	return service.storage.GetTable(service.database.Id, name)
-}
 
 func (service *DatabaseImpl) QueryRowBlockID(table *db.TableData, rowID db.RowID) (db.BlockID,error) {
 	return service.getBlockService().QueryRowBlockID(table, rowID)
@@ -102,21 +152,10 @@ func (service *DatabaseImpl) QueryRowIDByForeignKey(tableID db.TableID, foreignK
 	return service.getBlockService().QueryRowIDByForeignKey(tableID, foreignKey, referenceRowID)
 }
 
-func (service *DatabaseImpl) GetRelation() (*db.Relation,error) {
-	relation := &db.Relation{}
-	relationBytes,err := service.storage.GetRelationData(service.database.Id)
-	if err != nil {
-		return nil,err
-	}
-	if len(relationBytes) > 0 {
-		err = json.Unmarshal(relationBytes, relation)
-		if err != nil {
-			return nil,err
-		}
-	}
-	return relation,nil
+func (service *DatabaseImpl) QueryRowDataByRange(table *db.TableData, start db.RowID, end db.RowID, order db.OrderType, size int32) ([]*db.RowData,error) {
+	return service.getBlockService().QueryRowDataByRange(table, start, end, order, size)
 }
 
-func (service *DatabaseImpl) GetRelationKeysByReference(reference db.ReferenceKey) ([]db.RelationKey,error) {
-	return GetRelationKeysByReference(reference, service.database.Relation)
+func (service *DatabaseImpl) QueryRowDataHistoryByRange(table *db.TableData, rowID db.RowID, start db.Timestamp, end db.Timestamp, order db.OrderType, size int32) ([]*db.RowDataHistory,db.Total,error) {
+	return service.getBlockService().QueryRowDataHistoryByRange(table, rowID, start, end, order, size)
 }

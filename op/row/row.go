@@ -31,7 +31,7 @@ func (operation *RowOperation) Delete(tableName string, rowIDs []db.RowID) ([]db
 	}
 	var rowJsonArray []db.JsonData
 	for _,rowID := range rowIDs {
-		rowJsonArray = append(rowJsonArray, db.JsonData{table.PrimaryName:rowID})
+		rowJsonArray = append(rowJsonArray, db.JsonData{table.Primary.Name:rowID})
 	}
 	return operation.SetRow(table, rowJsonArray, db.DELETE)
 }
@@ -46,8 +46,11 @@ func (operation *RowOperation) QueryRowBytes(tableName string, rowID db.RowID) (
 	return util.ConvertJsonBytes(jsonData)
 }
 
-func (operation *RowOperation) QueryRowWithPaginationBytes(tableName string, id string, pageSize int32) ([]byte,error) {
-	pagination,err := operation.QueryRowWithPagination(tableName, id, pageSize); if err != nil {
+func (operation *RowOperation) QueryRowWithPaginationBytes(tableName string, start db.RowID, end db.RowID, order db.OrderType, pageSize int32) ([]byte,error) {
+	table,err := table.ValidateNullOfData(tableName, operation.iDatabase); if err != nil {
+		return nil,err
+	}
+	pagination,err := operation.QueryRowWithPagination(table, start, end, order, pageSize); if err != nil {
 		return nil,err
 	}
 	paginationBytes,err := util.ConvertJsonBytes(pagination); if err != nil {
@@ -60,7 +63,7 @@ func (operation *RowOperation) QueryRowDemo(tableName string) (map[string]interf
 	table,err := table.ValidateNullOfData(tableName, operation.iDatabase); if err != nil {
 		return nil,err
 	}
-	return operation.ParseRowData(table,nil)
+	return util.ParseRowData(table,nil)
 }
 
 
@@ -97,7 +100,16 @@ func (operation *RowOperation) PutRow(table *db.TableData, rows []*db.RowData) (
 	rowMaps := map[db.RowID]*db.RowData{}
 	var rowIDs []db.RowID
 	var newRows []*db.RowData
+	var incrementRows []*db.RowData
 	for _,row := range rows {
+		if row.Id == 0 {
+			if table.PrimaryKey.AutoIncrement {//自增行不合并
+				incrementRows = append(incrementRows, row)
+				continue
+			}else{
+				return nil,fmt.Errorf("PutRow rowID is null")
+			}
+		}
 		prev,ok := rowMaps[row.Id]
 		if ok {//存在
 			prev.Data = row.Data//合并到上一次记录中
@@ -108,6 +120,7 @@ func (operation *RowOperation) PutRow(table *db.TableData, rows []*db.RowData) (
 			rowIDs = append(rowIDs, row.Id)
 		}
 	}
+	newRows = append(newRows, incrementRows...)//自增行追加到尾端
 	err := operation.iDatabase.AddRowData(table, newRows); if err != nil {
 		return nil,err
 	}
@@ -116,140 +129,37 @@ func (operation *RowOperation) PutRow(table *db.TableData, rows []*db.RowData) (
 }
 
 func (operation *RowOperation) QueryRow(table *db.Table, rowID db.RowID) (db.JsonData,error) {
-	rowData,err := operation.iDatabase.QueryRowData(table.Data, rowID);
-	if err != nil {
+	rowData,err := operation.iDatabase.QueryRowData(table.Data, rowID); if err != nil {
 		return nil, err
 	}
 	if rowData == nil {
 		return nil, nil
 	}
-	return operation.ParseRowData(table, rowData)
+	return util.ParseRowData(table, rowData)
 }
 
-func (operation *RowOperation) ParseRowData(table *db.Table, rowData *db.RowData) (db.JsonData,error) {
-	var err error
-	dataLength := 0
-	if rowData != nil {
-		dataLength = len(rowData.Data)
-	}
-	row := db.JsonData{}
-	for i,column := range table.Data.Columns {
-		if column.IsDeleted {
-			continue
-		}
-		var data []byte
-		if rowData != nil && i < dataLength {
-			data = rowData.Data[i]
-		}else{
-			data = column.Default
-		}
-		var value interface{}
-		if len(data) == 0 {
-			value,err = util.ParseColumnDataByNull(column); if err != nil {
-				return nil,err
-			}
-		}else {
-			value,err = util.ParseColumnData(column, data); if err != nil {
-				return nil,err
-			}
-		}
-		row[column.Name] = value
-	}
-	return row,nil
-}
-
-func (operation *RowOperation) queryRowByVersion(tableName string, id string, version []byte) (map[string]interface{},error) {
-	row := map[string]interface{}{}
-	rowBytes,err := operation.storage.GetRowDataByVersion(tableName, id, version)
-	if err != nil {
-		return row,err
-	}
-	if len(rowBytes) > 0 {
-		err = json.Unmarshal(rowBytes, &row)
-		if err != nil {
-			return row,err
-		}
-	}
-	return row,nil
-}
-
-func (operation *RowOperation) QueryRowWithPagination(tableName string, id string, pageSize int32) (db.Pagination,error) {
+func (operation *RowOperation) QueryRowWithPagination(table *db.Table, start db.RowID, end db.RowID, order db.OrderType, pageSize int32) (db.Pagination,error) {
 	pagination := db.Pagination{}
-	var rows []interface{}
-	rowsBytes,err := operation.storage.GetRowDataByRange(tableName, id, pageSize); if err != nil {
+	tally,err := operation.iDatabase.GetTableTally(table.Data.Id); if err != nil {
 		return pagination,err
 	}
-	if len(rowsBytes) > 0 {
-		for _,rowByte := range rowsBytes {
-			if len(rowByte) > 0 {
-				var row map[string]interface{}
-				err = json.Unmarshal(rowByte, &row)
-				if err != nil {
+	count := tally.AddRow - tally.DelRow
+	rows,err := operation.iDatabase.QueryRowDataByRange(table.Data, start, end, order, pageSize); if err != nil {
+		return pagination,err
+	}
+	var list []db.JsonData
+	for _,rowData := range rows {
+		if rowData != nil && rowData.Id > 0 {
+			rowJson := db.JsonData{}
+			if len(rowData.Data) > 0 {
+				rowJson,err = util.ParseRowData(table, rowData); if err != nil {
 					return pagination,err
 				}
-				rows = append(rows, row)
+			}else{
+				rowJson[table.Primary.Name] = rowData.Id
 			}
+			list = append(list, rowJson)
 		}
 	}
-	count,err := operation.tableoperation.GetTableCount(tableName); if err != nil {
-		return pagination,err
-	}
-	return util.Pagination(pageSize, count, rows),nil
-}
-
-func (operation *RowOperation) DelRowByObj(tableName string, data map[string]interface{}) error {
-	table,err := operation.tableoperation.ValidateQueryTableIsNotNull(tableName); if err != nil {
-		return err
-	}
-	_,id := util.GetTablePrimaryKey(table, data)
-	return operation.delRow(table, id)
-}
-
-func (operation *RowOperation) delRow(table db.Table, rowID db.RowID) error {
-	err := operation.verifyReferenceByDelRow(table, id, operation.indexoperation); if err != nil {
-		return err
-	}
-	operation.validateRowExists()
-	rowData,err := operation.tableoperation.QueryRowData(table.Data, rowID); if err != nil {
-		return err
-	}
-	if rowData == nil {
-		return nil
-	}
-	if err := operation.tableoperation.SetTableTally(table.Name,0, db.DELETE); err != nil {
-		return err
-	}
-
-	return operation.PutRow(table.Data, )
-}
-
-func (operation *RowOperation) QueryRowDataByIndex(tableName string, columnName string, columnData string) (string,map[string]interface{},error) {
-	idValue := ""
-	row := map[string]interface{}{}
-	idValue,err := operation.indexoperation.QueryRowIdByIndex(tableName, columnName, columnData); if err != nil {
-		return idValue,row,err
-	}
-
-	row,err = operation.QueryRow(tableName, idValue); if err != nil {
-		return idValue,row,err
-	}
-
-	return idValue,row,nil
-}
-
-func (operation *RowOperation) QueryRowDataListByIndex(tableName string, columnName string, columnData string) ([]string,[]map[string]interface{},error) {
-	var idValues []string
-	var rows []map[string]interface{}
-	idValues,err := operation.indexoperation.QueryAllRowIdByIndex(tableName, columnName, columnData); if err != nil {
-		return idValues,rows,err
-	}
-
-	for _,idValue := range idValues {
-		row,err := operation.QueryRow(tableName, idValue); if err != nil {
-			return idValues,rows,err
-		}
-		rows = append(rows, row)
-	}
-
-	return idValues,rows,nil
+	return util.Pagination(pageSize, count, list),nil
 }

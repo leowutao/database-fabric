@@ -8,7 +8,7 @@ type TreeInterface interface {
 	SearchHead(key db.ColumnKey) (*TreeHead, error)
 
 	Search(head *TreeHead, key []byte) ([]byte,error)
-	SearchByRange(head *TreeHead, startKey []byte, endKey []byte, size Pointer) ([]KV, error)
+	SearchByRange(head *TreeHead, startKey []byte, endKey []byte, order db.OrderType, size Pointer) ([]KV, error)
 
 	Insert(head *TreeHead, key []byte, value []byte, insertType InsertType) error
 
