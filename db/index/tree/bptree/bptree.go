@@ -3,6 +3,7 @@ package bptree
 import (
 	"bytes"
 	"fmt"
+	"gitee.com/bidpoc/database-fabric-cc/db"
 	"gitee.com/bidpoc/database-fabric-cc/db/index/tree"
 	"gitee.com/bidpoc/database-fabric-cc/db/util"
 )
@@ -29,8 +30,7 @@ type TreeKeyPosition struct {
 //节点key所在位置和数据
 type TreeKeyData struct {
 	KeyPosition TreeKeyPosition //key位置
-	Data        tree.KV       //匹配到的KV
-	ValueType   tree.ValueType  //值类型
+	Data        db.KV       //匹配到的KV
 }
 
 //缓存树信息、已读到的节点集合和待写入的节点集合,减少io次数
@@ -63,15 +63,6 @@ func SplitMid(num Position) Position {
 		mid++
 	}
 	return mid
-}
-
-func ParseValue(value []byte) ([]byte, tree.ValueType) {
-	var valueSlice []byte
-	//目前定义一个字节来保存value的类型，用字节数组最后一位表示
-	last := len(value) - 1
-	valueType := value[last]
-	valueSlice = value[:last]
-	return valueSlice,valueType
 }
 
 func GetNodeSize(node *tree.TreeNode) (int, error) {
@@ -127,12 +118,7 @@ func (nodePosition *TreeNodePosition) setNext(next *TreeNodePosition) {
 }
 
 func (nodePosition *TreeNodePosition) createTreeKeyData(key []byte, value []byte, position Position, compare tree.CompareType) (TreeKeyData, error) {
-	convertValue := value
-	valueType := tree.ValueTypePointer
-	if nodePosition.Node.Type == tree.NodeTypeLeaf{
-		convertValue,valueType = ParseValue(value)
-	}
-	return TreeKeyData{TreeKeyPosition{nodePosition,position,compare},tree.KV{Key:key,Value:convertValue},valueType}, nil
+	return TreeKeyData{TreeKeyPosition{nodePosition,position,compare},db.KV{Key:key,Value:value}}, nil
 }
 
 /*

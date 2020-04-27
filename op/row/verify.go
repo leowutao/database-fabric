@@ -49,7 +49,7 @@ func (operation *RowOperation) validateNullOfData(table *db.TableData, rowID db.
 	外建匹配行数据已存在
 */
 func (operation *RowOperation) validateExistsByForeignKey(table *db.TableData, foreignKey db.ForeignKey, referenceRowID db.RowID) error {
-	rows,err := operation.iDatabase.QueryRowIDByForeignKey(table.Id, foreignKey, referenceRowID); if err != nil {
+	rows,err := operation.iDatabase.QueryRowIDByForeignKey(table.Id, foreignKey, referenceRowID,1); if err != nil {
 		return err
 	}
 	if len(rows) > 0 {

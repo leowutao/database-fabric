@@ -15,7 +15,7 @@ import (
 func TestBPTree(t *testing.T){
 	var stub = new(test.TestChaincodeStub)
 	state := state.NewStateImpl(stub)
-	bPTreeImpl := NewBPTreeImpl(storage.NewBPTreeStorage(state))
+	bPTreeImpl := NewBPTreeImpl(storage.NewBPTreeStorage(state), new(tree.DefaultValue))
 
 	//树基本验证
 	{
@@ -25,7 +25,7 @@ func TestBPTree(t *testing.T){
 		}
 		for i := tree.Pointer(1); i <= 1000; i++ {
 			v := tree.PointerToBytes(i)
-			if err := bPTreeImpl.Insert(treeHead, v, v, tree.InsertTypeDefault); err != nil {
+			if _,err := bPTreeImpl.Insert(treeHead, v, v, tree.InsertTypeDefault); err != nil {
 				fmt.Println(i)
 				panic(err.Error())
 			}

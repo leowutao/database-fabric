@@ -94,7 +94,17 @@ func (storage *CommonStorage) getBlockDataKey(database db.DatabaseID, table db.T
 	return storage.state.PrefixAddKey(string(db.BlockKeyType), storage.state.CompositeKey(string(database), string(table), string(block)))
 }
 
-func (storage *TableStorage) createDataBase(name string) (db.DatabaseID,error) {
+func (storage *CommonStorage) getIndexDataKey(indexType db.IndexType, key db.ColumnKey, values ...string) string {
+	compositeKey := storage.state.CompositeKey(string(key.Database), string(key.Table), string(key.Column))
+	for _,val := range values {
+		if len(val) > 0 {
+			storage.state.CompositeKey(compositeKey, val)
+		}
+	}
+	return storage.state.PrefixAddKey(storage.state.PrefixAddKey(string(db.IndexKeyType), string(indexType)), compositeKey)
+}
+
+func (storage *CommonStorage) createDataBase(name string) (db.DatabaseID,error) {
 	id,err := storage.addName(storage.getChainDataKey(), name)
 	return db.DatabaseID(id),err
 }
@@ -248,36 +258,49 @@ func NewBPTreeStorage(state state.ChainCodeState) *BPTreeStorage {
 	return storage
 }
 
-type BPTreeNodeType int8
-const (
-	HeadNodeType BPTreeNodeType = iota
-	NodeType
-)
-
-func (storage *BPTreeStorage) GetHeadPrefix(key db.ColumnKey) string {
-	return storage.state.PrefixAddKey(string(db.IndexKeyType), storage.state.CompositeKey(string(HeadNodeType), string(key.Database), string(key.Table), string(key.Column)))
-}
-
 func (storage *BPTreeStorage) PutHead(key db.ColumnKey, value []byte) error {
-	return storage.state.PutOrDelKey(storage.GetHeadPrefix(key), value, db.SetState)
+	return storage.state.PutOrDelKey(storage.getIndexDataKey(db.BPTreeHeadIndexType, key,""), value, db.SetState)
 }
 
 func (storage *BPTreeStorage) GetHead(key db.ColumnKey) ([]byte,error) {
-	return storage.state.GetKey(storage.GetHeadPrefix(key))
-}
-
-func (storage *BPTreeStorage) GetNodePrefix(key db.ColumnKey, pointer string) string {
-	return storage.state.PrefixAddKey(string(db.IndexKeyType), storage.state.CompositeKey(string(NodeType),  string(key.Database), string(key.Table), string(key.Column), pointer))
+	return storage.state.GetKey(storage.getIndexDataKey(db.BPTreeHeadIndexType, key,""))
 }
 
 func (storage *BPTreeStorage) PutNode(key db.ColumnKey, pointer string, value []byte) error {
-	return storage.state.PutOrDelKey(storage.GetNodePrefix(key, pointer), value, db.SetState)
+	return storage.state.PutOrDelKey(storage.getIndexDataKey(db.BPTreeNodeIndexType, key, pointer), value, db.SetState)
 }
 
 func (storage *BPTreeStorage) GetNode(key db.ColumnKey, pointer string) ([]byte,error) {
-	return storage.state.GetKey(storage.GetNodePrefix(key, pointer))
+	return storage.state.GetKey(storage.getIndexDataKey(db.BPTreeNodeIndexType, key, pointer))
 }
 
+////////////////////////////////////// LinkedList Storage //////////////////////////////////////
+
+type LinkedListStorage struct {
+	CommonStorage
+}
+
+func NewLinkedListStorage(state state.ChainCodeState) *LinkedListStorage {
+	storage := new(LinkedListStorage)
+	storage.Init(state)
+	return storage
+}
+
+func (storage *LinkedListStorage) PutHead(key db.ColumnRowKey, value []byte) error {
+	return storage.state.PutOrDelKey(storage.getIndexDataKey(db.LinkedHeadIndexType, key.ColumnKey, string(key.Row)), value, db.SetState)
+}
+
+func (storage *LinkedListStorage) GetHead(key db.ColumnRowKey) ([]byte,error) {
+	return storage.state.GetKey(storage.getIndexDataKey(db.LinkedHeadIndexType, key.ColumnKey, string(key.Row)))
+}
+
+func (storage *LinkedListStorage) PutNode(key db.ColumnRowKey, pointer string, value []byte) error {
+	return storage.state.PutOrDelKey(storage.getIndexDataKey(db.LinkedNodeIndexType, key.ColumnKey, string(key.Row), pointer), value, db.SetState)
+}
+
+func (storage *LinkedListStorage) GetNode(key db.ColumnRowKey, pointer string) ([]byte,error) {
+	return storage.state.GetKey(storage.getIndexDataKey(db.LinkedNodeIndexType, key.ColumnKey, string(key.Row), pointer))
+}
 
 
 

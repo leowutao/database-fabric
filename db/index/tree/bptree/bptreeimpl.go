@@ -13,10 +13,11 @@ import (
 /////////////////// Service Function ///////////////////
 type BPTreeImpl struct {
 	storage *storage.BPTreeStorage
+	iValue tree.ValueInterface
 }
 
-func NewBPTreeImpl(storage *storage.BPTreeStorage) *BPTreeImpl {
-	return &BPTreeImpl{storage}
+func NewBPTreeImpl(storage *storage.BPTreeStorage, iValue tree.ValueInterface) *BPTreeImpl {
+	return &BPTreeImpl{storage,iValue}
 }
 
 ///////////////////////// Storage Function //////////////////////
@@ -170,7 +171,7 @@ func (service *BPTreeImpl) recursionNode(nodePosition *TreeNodePosition, key []b
 	节点内部key区间查找，排序为升序
 	返回匹配的列表，是否全部匹配到(标记是否循环)
 */
-func (service *BPTreeImpl) rangeSearchByAsc(node *tree.TreeNode, position Position, endKey []byte, size *tree.Pointer, list []tree.KV) (bool,error) {
+func (service *BPTreeImpl) rangeSearchByAsc(node *tree.TreeNode, position Position, endKey []byte, size *tree.Pointer, list *[]*db.KV) (bool,error) {
 	if *size == 0 {//数量已经满足
 		return false,nil
 	}
@@ -182,8 +183,10 @@ func (service *BPTreeImpl) rangeSearchByAsc(node *tree.TreeNode, position Positi
 			compare = bytes.Compare(key, endKey)
 		}
 		if compare != 1 { //小于或等于
-			convertValue,_ := ParseValue(node.Values[i])
-			list = append(list, tree.KV{Key:key,Value:convertValue})
+			kv,err := service.parseValue(key, node.Values[i]); if err != nil {
+				return false,err
+			}
+			*list = append(*list, kv)
 			*size--
 			if *size == 0 {//数量已经满足
 				return false,nil
@@ -201,7 +204,7 @@ func (service *BPTreeImpl) rangeSearchByAsc(node *tree.TreeNode, position Positi
 	节点内部key区间查找，排序为降序
 	返回匹配的列表，是否全部匹配到(标记是否循环)
 */
-func (service *BPTreeImpl) rangeSearchByDesc(node *tree.TreeNode, position Position, endKey []byte, size *tree.Pointer, list []tree.KV) (bool,error) {
+func (service *BPTreeImpl) rangeSearchByDesc(node *tree.TreeNode, position Position, endKey []byte, size *tree.Pointer, list *[]*db.KV) (bool,error) {
 	if *size == 0 {//数量已经满足
 		return false,nil
 	}
@@ -213,8 +216,10 @@ func (service *BPTreeImpl) rangeSearchByDesc(node *tree.TreeNode, position Posit
 			compare = bytes.Compare(key, endKey)
 		}
 		if compare != -1 { //大于或等于
-			convertValue,_ := ParseValue(node.Values[i])
-			list = append(list, tree.KV{Key:key,Value:convertValue})
+			kv,err := service.parseValue(key, node.Values[i]); if err != nil {
+				return false,err
+			}
+			*list = append(*list, kv)
 			*size--
 			if *size == 0 {//数量已经满足
 				return false,nil
@@ -242,8 +247,10 @@ func (service *BPTreeImpl) printNode(nodePosition *TreeNodePosition, height int8
 				printKey = fmt.Sprintf("(%v->&%d) %s", k, pointer, space)
 			}
 		} else if printData {
-			v,vtype := ParseValue(value)
-			cv,err := tree.ParseValueToString(v, vtype); if err != nil {
+			kv,err := service.parseValue(k, value); if err != nil {
+				return nil,err
+			}
+			cv,err := service.iValue.ToString(kv.Value, kv.VType); if err != nil {
 				return nil,err
 			}
 			printKey = fmt.Sprintf("(%v:%s) %s", k, cv, space)
@@ -271,6 +278,14 @@ func (service *BPTreeImpl) printNode(nodePosition *TreeNodePosition, height int8
 	return str, nil
 }
 
+func (service *BPTreeImpl) parseValue(key []byte, value []byte) (*db.KV,error) {
+	kv := &db.KV{Key:key,Value:value}
+	if err := service.iValue.Parse(kv); err != nil {
+		return nil,err
+	}
+	return kv,nil
+}
+
 //////////////////// Implement Tree Interface ///////////////////////////////
 /**
 	创建树头
@@ -289,56 +304,62 @@ func (service *BPTreeImpl) SearchHead(key db.ColumnKey) (*tree.TreeHead, error) 
 /*
 	插入key到树中
 */
-func (service *BPTreeImpl) Insert(head *tree.TreeHead, key []byte, value []byte, insertType tree.InsertType) error {
+func (service *BPTreeImpl) Insert(head *tree.TreeHead, key []byte, value []byte, insertType tree.InsertType) (*tree.RefNode,error) {
 	cache,err := createTreeNodeCache(head,true); if err != nil {
-		return err
+		return nil,err
 	}
 	if TreeIsNull(head) {
 		rootPosition, err := createNodePosition(tree.NodeTypeLeaf, nil, 0, [][]byte{}, [][]byte{}, cache)
 		if err != nil {
-			return err
+			return nil,err
 		}
 		head.Root = rootPosition.Pointer
 		head.Height = 1
 	}
 	keyData, err := service.findPosition(key, cache)
 	if err != nil {
-		return err
+		return nil,err
 	}
 	//处理叶子节点多种数据类型
-	var oldValue []byte
+	var oldKV *db.KV
 	if keyData.KeyPosition.Compare == tree.CompareEq {
-		oldValue = keyData.Data.Value
+		oldKV,err = service.parseValue(keyData.Data.Key, keyData.Data.Value); if err != nil {
+			return nil,err
+		}
 	}
-	convertValue, err := tree.ConvertValue(key, value, oldValue, keyData.ValueType, insertType)
-	if err != nil {
-		return err
+	kv := &db.KV{Key:key,Value:value}
+	refNode,err := service.iValue.Format(kv, oldKV, insertType); if err != nil {
+		return nil,err
+	}
+	//引用节点是否触发更新关键字值
+	if refNode != nil && !refNode.Update {
+		return refNode,nil
 	}
 	//叶子节点写入key并平衡树结构
-	split := &TreeSplit{nil,&keyData.KeyPosition,nil,&TreeNodeKV{key,convertValue},cache}
+	split := &TreeSplit{nil,&keyData.KeyPosition,nil,&TreeNodeKV{kv.Key,kv.Value},cache}
 	isSplit,err := split.GetIsSplit(); if err != nil {
-		return err
+		return nil,err
 	}
 	if isSplit {//如果需要分裂需要缓存兄弟节点数据
 		service.linkPosition(keyData.KeyPosition.NodePosition, cache)
 	}
 	err = split.balanceTree(isSplit)
 	if err != nil {
-		return err
+		return nil,err
 	}
 
 	//保存所有需要变更的节点
 	err = service.putNode(cache)
 	if err != nil {
-		return err
+		return nil,err
 	}
-	return nil
+	return refNode,nil
 }
 
 /**
 	查询key
  */
-func (service *BPTreeImpl) Search(head *tree.TreeHead, key []byte) ([]byte, error) {
+func (service *BPTreeImpl) Search(head *tree.TreeHead, key []byte) (*db.KV, error) {
 	cache,err := createTreeNodeCache(head,false); if err != nil {
 		return nil,err
 	}
@@ -351,7 +372,10 @@ func (service *BPTreeImpl) Search(head *tree.TreeHead, key []byte) ([]byte, erro
 	}
 
 	if keyData.KeyPosition.Compare == tree.CompareEq {
-		return keyData.Data.Value, nil
+		kv,err := service.parseValue(keyData.Data.Key, keyData.Data.Value); if err != nil {
+			return nil,err
+		}
+		return kv, nil
 	}
 	return nil, nil
 }
@@ -361,7 +385,7 @@ func (service *BPTreeImpl) Search(head *tree.TreeHead, key []byte) ([]byte, erro
 	升序：startKey为空默认为最左，endKey为空默认为最右
 	降序：startKey为空默认为最右，endKey为空默认为最左
 */
-func (service *BPTreeImpl) SearchByRange(head *tree.TreeHead, startKey []byte, endKey []byte, order db.OrderType, size tree.Pointer) ([]tree.KV, error) {
+func (service *BPTreeImpl) SearchByRange(head *tree.TreeHead, startKey []byte, endKey []byte, order db.OrderType, size tree.Pointer) ([]*db.KV, error) {
 	var err error
 	var node *tree.TreeNode
 	position := Position(0)
@@ -408,21 +432,21 @@ func (service *BPTreeImpl) SearchByRange(head *tree.TreeHead, startKey []byte, e
 		}
 	}
 	if node != nil {
-		var list []tree.KV
+		var list []*db.KV
 		isLoop := true
 		for isLoop {
 			pointer := tree.Pointer(0)
 			if order == db.ASC {
 				pointer = node.Next
 				if position < Position(len(node.Keys)) {
-					isLoop,err = service.rangeSearchByAsc(node, position, endKey, &size, list[:]); if err != nil {
+					isLoop,err = service.rangeSearchByAsc(node, position, endKey, &size, &list); if err != nil {
 						return nil,err
 					}
 				}
 			}else{
 				pointer = node.Prev
 				if position >= 0 {
-					isLoop,err = service.rangeSearchByDesc(node, position, endKey, &size, list[:]); if err != nil {
+					isLoop,err = service.rangeSearchByDesc(node, position, endKey, &size, &list); if err != nil {
 						return nil,err
 					}
 				}

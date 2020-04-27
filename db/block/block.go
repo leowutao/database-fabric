@@ -33,8 +33,8 @@ func (service *BlockService) QueryRowBlockID(table *db.TableData, rowID db.RowID
 	return service.indexService.GetPrimaryKeyIndex(service.database.Id, table, rowID)
 }
 
-func (service *BlockService) QueryRowIDByForeignKey(tableID db.TableID, foreignKey db.ForeignKey, referenceRowID db.RowID) ([]db.RowID,error) {
-	return service.indexService.GetForeignKeyIndex(service.database.Id, tableID, foreignKey, referenceRowID)
+func (service *BlockService) QueryRowIDByForeignKey(tableID db.TableID, foreignKey db.ForeignKey, referenceRowID db.RowID, size int32) ([]db.RowID,error) {
+	return service.indexService.GetForeignKeyIndex(service.database.Id, tableID, foreignKey, referenceRowID, size)
 }
 
 func (service *BlockService) QueryRowDataByRange(table *db.TableData, start db.RowID, end db.RowID, order db.OrderType, size int32) ([]*db.RowData,error) {
@@ -55,9 +55,8 @@ func (service *BlockService) QueryRowDataByRange(table *db.TableData, start db.R
 	return rows,nil
 }
 
-func (service *BlockService) QueryRowDataHistoryByRange(table *db.TableData, rowID db.RowID, start db.Timestamp, end db.Timestamp, order db.OrderType, size int32) ([]*db.RowDataHistory,db.Total,error) {
-	total := db.Total(0)
-	blocks,err := service.indexService.GetPrimaryKeyIndexHistory(service.database.Id, table, rowID); if err != nil {
+func (service *BlockService) QueryRowDataHistoryByRange(table *db.TableData, rowID db.RowID, order db.OrderType, size int32) ([]*db.RowDataHistory,db.Total,error) {
+	blocks,total,err := service.indexService.GetPrimaryKeyIndexHistoryByRange(service.database.Id, table, rowID, order, size); if err != nil {
 		return nil,total,err
 	}
 	var rows []*db.RowDataHistory
@@ -114,8 +113,8 @@ func (service *BlockService) getBlockData(tableID db.TableID, blockID db.BlockID
 }
 
 func (service *BlockService) joinRowData(row *db.RowData, splitRow *db.RowData, splitPosition int16) {
-	index := splitPosition-1
-	row.Data[index] = append(row.Data[index], splitRow.Data[0]...)
+	i := splitPosition-1
+	row.Data[i] = append(row.Data[i], splitRow.Data[0]...)
 }
 
 func (service *BlockService) joinBlockRowData(tableID db.TableID, blockID db.BlockID, rowID db.RowID, block *db.BlockData) (*db.RowData,error) {
@@ -145,7 +144,7 @@ func (service *BlockService) joinBlockRowData(tableID db.TableID, blockID db.Blo
 	return row,nil
 }
 
-func (service *BlockService) splitRowData(use *int, row db.RowData, splitRows *[]db.RowData, blocks *[]db.BlockData) {
+func (service *BlockService) splitRowData(use *int, row db.RowData, splitRows []db.RowData, blocks *[]db.BlockData) {
 	var nextRow db.RowData
 	*use = *use - rowSize
 	isSplit := false
@@ -162,8 +161,8 @@ func (service *BlockService) splitRowData(use *int, row db.RowData, splitRows *[
 				newRow.Data = append(newRow.Data, left)
 				nextRow.Data = append(nextRow.Data, right)
 			}
-			*splitRows = append(*splitRows, newRow)
-			*blocks = append(*blocks, db.BlockData{Rows:*splitRows, SplitPosition:int16(i+1)})
+			splitRows = append(splitRows, newRow)
+			*blocks = append(*blocks, db.BlockData{Rows:splitRows, SplitPosition:int16(i+1)})
 			splitRows = nil
 			*use = useSize
 			if len(nextRow.Data) > 0 {
@@ -176,7 +175,7 @@ func (service *BlockService) splitRowData(use *int, row db.RowData, splitRows *[
 		}
 	}
 	if !isSplit {
-		*splitRows = append(*splitRows, row)
+		splitRows = append(splitRows, row)
 	}
 }
 
@@ -189,7 +188,7 @@ func (service *BlockService) SetBlockData(table *db.TableData, tally *db.TableTa
 	var blocks []db.BlockData
 	for _,row := range rows {
 		service.rowTally(tally, row)
-		service.splitRowData(&use, *row, &splitRows, &blocks)
+		service.splitRowData(&use, *row, splitRows[:], &blocks)
 	}
 	if len(splitRows) > 0 {
 		blocks = append(blocks, db.BlockData{Rows:splitRows})
@@ -228,7 +227,7 @@ func (service *BlockService) SetBlockData(table *db.TableData, tally *db.TableTa
  */
 func (service *BlockService) addIndex(table *db.TableData, blockID db.BlockID, row *db.RowData) error {
 	//主键，由于需要支持记录版本，新增、修改、删除都需要记录(实际上只是更新底层索引树叶子节点数据)
-	if err := service.indexService.PutPrimaryKeyIndex(service.database.Id, table, row.Id, blockID); err != nil {
+	if err := service.indexService.PutPrimaryKeyIndex(service.database.Id, table, row.Id, row.Op, blockID); err != nil {
 		return err
 	}
 	//外键，只需要在新增行时记录外键与主键关系

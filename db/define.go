@@ -12,10 +12,35 @@ package db
 //行结构：行id、行数据列表、切割位置(如果行数据大于block容量，记录切割索引)
 //行数据中的一列数据如何切割：
 //历史版本：行数据使用block来记录，通过主键索引叶子节点数据关联多个版本block记录，表记录使用现有的history对象记录
+/*
+
+/**
+
+TODO 叶子节点索引数据支持双向链表节点数据
+1、对叶子节点关联指针数据过多，建立下级索引节点数据，叶子节点数据类型由集合转变为链表类型
+2、原叶子节点数据全部移入到新链表节点中，原叶子节点数据存储链表头指针、尾指针、链表关键字个数
+3、链表节点结构：上级指针、下级指针、值列表
+
+TODO 叶子节点索引结构支持历史版本
+1、需要指定记录排序，叶子节点数据如果指向链表，需要记录最新插入的数据，数据格式可以由外部定义，需要支持外部提供的两个自定义方法，数据格式定义方法、数据验证方式方法
+
+TODO 数据压缩
+1、叶子节点压缩：数据可能非常大，如果建立二层链表结构底层链表数据需要压缩
+2、关键字压缩：其他类型节点按4kb实际计算只能存100多个关键字，如何存更多关键字需要压缩
+
+每次行事务受影响的key类型为：
+写：TallyKeyType、BlockKeyType、IndexKeyType(BPTreeHeadIndexType、BPTreeNodeIndexType)
+读：ChainKeyType、DataBaseKeyType、TableKeyType、RelationKeyType、TallyKeyType、BlockKeyType、IndexKeyType
+以上可以计算出每次行事务读大约在8-16个key，写大约在4-12个key，key共交互12-28次
+按每个key存4kb计算：读=32kb～64kb，写=8kb～48kb，总共=40kb～112kb
+写目前放大还算小，由于写入数据会组合或拆分多个block，所以批量添加小数据行或者大数据行比较适合，能够利用索引和block
+
+优化：能否写控制在4次以下 ，读控制在8次以下，总交互大小控制在40kb以下，相比较单key交互10kb左右只放大4倍
+ */
 
 const ChainPrefix = ""
 
-type KeyType int8
+type KeyType = uint8
 const (
 	ChainKeyType KeyType = iota
 	DataBaseKeyType
@@ -26,7 +51,25 @@ const (
 	IndexKeyType
 )
 
-type DataType int8
+type IndexType = uint8
+const (
+	BPTreeHeadIndexType IndexType = iota
+	BPTreeNodeIndexType
+	LinkedHeadIndexType
+	LinkedNodeIndexType
+)
+
+type IndexValueType = uint8
+const (
+	ValueTypeNone IndexValueType = iota //空
+	ValueTypeData //数据
+	ValueTypePointer //指针
+	ValueTypeCollection //集合
+	ValueTypeLinkedList //链表
+	ValueTypeTree //树
+)
+
+type DataType = uint8
 const (
 	UNDEFINED DataType = iota
 	INT
@@ -35,20 +78,20 @@ const (
 	BOOL
 )
 
-type OpType int8
+type OpType = uint8
 const (
 	ADD OpType = iota
 	UPDATE
 	DELETE
 )
 
-type StateType = int8
+type StateType = uint8
 const (
 	SetState StateType = iota
 	DelState
 )
 
-type OrderType = int8
+type OrderType = uint8
 const (
 	ASC OrderType = iota
 	DESC
@@ -74,6 +117,13 @@ type RowDataHistory struct {
 	Row *RowData
 }
 
+//索引kv结构
+type KV struct {
+	Key     []byte `json:"key"`
+	Value   []byte `json:"value"`
+	VType   IndexValueType `json:"vType"`
+}
+
 //时间戳类型
 type Timestamp int64
 //记录总数
@@ -87,6 +137,12 @@ type ColumnKey struct {
 	Database DatabaseID `json:"database"`
 	Table TableID `json:"table"`
 	Column ColumnID `json:"column"`
+}
+
+//列键下行键数据
+type ColumnRowKey struct {
+	ColumnKey
+	Row RowID `json:"row"`
 }
 
 //事务数据

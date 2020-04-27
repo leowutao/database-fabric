@@ -20,10 +20,10 @@ type DatabaseInterface interface {
 
 	QueryRowBlockID(table *TableData, rowID RowID) (BlockID,error)
 	QueryRowData(table *TableData, rowID RowID) (*RowData,error)
-	QueryRowIDByForeignKey(tableID TableID, foreignKey ForeignKey, referenceRowID RowID) ([]RowID,error)
+	QueryRowIDByForeignKey(tableID TableID, foreignKey ForeignKey, referenceRowID RowID, size int32) ([]RowID,error)
 
 	QueryRowDataByRange(table *TableData, start RowID, end RowID, order OrderType, size int32) ([]*RowData,error)
 
-	QueryRowDataHistoryByRange(table *TableData, rowID RowID, start Timestamp, end Timestamp, order OrderType, size int32) ([]*RowDataHistory,Total,error)
+	QueryRowDataHistoryByRange(table *TableData, rowID RowID, order OrderType, size int32) ([]*RowDataHistory,Total,error)
 }
 

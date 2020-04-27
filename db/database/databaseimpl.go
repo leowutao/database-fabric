@@ -148,14 +148,14 @@ func (service *DatabaseImpl) QueryRowData(table *db.TableData, rowID db.RowID) (
 	return service.getBlockService().QueryRowData(table, rowID)
 }
 
-func (service *DatabaseImpl) QueryRowIDByForeignKey(tableID db.TableID, foreignKey db.ForeignKey, referenceRowID db.RowID) ([]db.RowID,error) {
-	return service.getBlockService().QueryRowIDByForeignKey(tableID, foreignKey, referenceRowID)
+func (service *DatabaseImpl) QueryRowIDByForeignKey(tableID db.TableID, foreignKey db.ForeignKey, referenceRowID db.RowID, size int32) ([]db.RowID,error) {
+	return service.getBlockService().QueryRowIDByForeignKey(tableID, foreignKey, referenceRowID, size)
 }
 
 func (service *DatabaseImpl) QueryRowDataByRange(table *db.TableData, start db.RowID, end db.RowID, order db.OrderType, size int32) ([]*db.RowData,error) {
 	return service.getBlockService().QueryRowDataByRange(table, start, end, order, size)
 }
 
-func (service *DatabaseImpl) QueryRowDataHistoryByRange(table *db.TableData, rowID db.RowID, start db.Timestamp, end db.Timestamp, order db.OrderType, size int32) ([]*db.RowDataHistory,db.Total,error) {
-	return service.getBlockService().QueryRowDataHistoryByRange(table, rowID, start, end, order, size)
+func (service *DatabaseImpl) QueryRowDataHistoryByRange(table *db.TableData, rowID db.RowID, order db.OrderType, size int32) ([]*db.RowDataHistory,db.Total,error) {
+	return service.getBlockService().QueryRowDataHistoryByRange(table, rowID, order, size)
 }
