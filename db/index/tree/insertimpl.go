@@ -67,26 +67,28 @@ func(insertImpl *DefaultInsert) Append(kv *db.KV, oldKV *db.KV) (*RefNode,error)
 	var collection [][]byte
 	var err error
 	var value []byte
+	kvValue := kv.Value
 	if oldKV != nil {//原值为集合类型判定容量是否触发转为链表
-		if kv.VType == oldKV.VType {
+		if oldKV.VType == db.ValueTypeLinkedList {//链表结构
+			kv.VType = db.ValueTypeLinkedList //类型变更为链表
+			refNode.Update = false//不更新关键字值
+		}else if kv.VType == oldKV.VType {//集合
 			oldCollection,err := insertImpl.GetParse().CollectionBytes(oldKV.Value); if err != nil {
 				return nil,err
 			}
+			collection = make([][]byte, 0, len(oldCollection)+1)
 			collection = append(collection, oldCollection...)
 			num := int64(len(collection))
-			if num > 50 {//转为链表结构
+			if num == 50 {//转为链表结构
 				kv.VType = db.ValueTypeLinkedList //类型变更为链表
-				kv.Value = nil
+				kv.Value = nil //值设置为空，此key(索引树叶子节点中)之后不再更新，所有更新操作在链表层
 			}
-		}else {
+		}else {//单个值
+			collection = make([][]byte, 0, 2)
 			collection = append(collection, oldKV.Value) //原值需要和当前值组合
-			if oldKV.VType == db.ValueTypeLinkedList {//链表结构
-				kv.VType = db.ValueTypeLinkedList //类型变更为链表
-				refNode.Update = false//不更新关键字值
-			}
 		}
 	}
-	collection = append(collection, kv.Value)
+	collection = append(collection, kvValue)
 	refNode.Values = collection
 	if kv.VType == db.ValueTypeCollection {//集合类型格式化
 		value,err = insertImpl.GetParse().BytesByCollectionBytes(collection); if err != nil {

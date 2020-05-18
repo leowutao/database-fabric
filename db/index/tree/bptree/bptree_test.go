@@ -15,40 +15,138 @@ import (
 func TestBPTree(t *testing.T){
 	var stub = new(test.TestChaincodeStub)
 	state := state.NewStateImpl(stub)
-	bPTreeImpl := NewBPTreeImpl(storage.NewBPTreeStorage(state), new(tree.DefaultValue))
+	var iInsert tree.InsertInterface = new(tree.DefaultInsert)
+	bPTreeImpl := NewBPTreeImpl(storage.NewBPTreeStorage(state), tree.NewDefaultValue(&iInsert))
 
 	//树基本验证
 	{
-		key := db.ColumnKey{db.DatabaseID(1),db.TableID(1),db.ColumnID(1)}
+		key := db.ColumnKey{Database:db.DatabaseID(1),Table:db.TableID(1),Column:db.ColumnID(1)}
 		treeHead,err := bPTreeImpl.CreateHead(key, tree.TreeTypeAsc); if err != nil {
 			panic(err.Error())
 		}
-		for i := tree.Pointer(1); i <= 1000; i++ {
+		start := tree.Pointer(1)
+		size := tree.Pointer(1000)
+		for i:=start; i <= size; i++ {
 			v := tree.PointerToBytes(i)
 			if _,err := bPTreeImpl.Insert(treeHead, v, v, tree.InsertTypeDefault); err != nil {
 				fmt.Println(i)
 				panic(err.Error())
 			}
 		}
-		assert.EqualValues(t, treeHead.NodeOrder,treeHead.NodeNum,"node num error")
-		list, err := bPTreeImpl.SearchByRange(treeHead, tree.PointerToBytes(1), tree.PointerToBytes(1000), db.ASC,1000); if err != nil {
+		if err := bPTreeImpl.Print(treeHead,true); err != nil {
 			panic(err.Error())
 		}
-		assert.EqualValues(t, len(list),1000,"key num error")
+		assert.EqualValues(t, treeHead.NodeOrder, treeHead.NodeNum,"head node num error")
+		assert.EqualValues(t, treeHead.LastLeaf, treeHead.NodeOrder,"head lastLeaf error")
+
+		//全表扫描-升序查询
+		list, err := bPTreeImpl.SearchByRange(treeHead,nil,nil, db.ASC, size); if err != nil {
+			panic(err.Error())
+		}
+		assert.EqualValues(t, len(list), size,"key num error")
+		assert.EqualValues(t, list[0].Key, tree.PointerToBytes(start),"start key error")
+		assert.EqualValues(t, list[0].Value, tree.PointerToBytes(start),"start value error")
+		assert.EqualValues(t, list[0].VType, db.ValueTypeData,"start type error")
+		assert.EqualValues(t, list[len(list)-1].Key, tree.PointerToBytes(size),"end key error")
+		assert.EqualValues(t, list[len(list)-1].Value, tree.PointerToBytes(size),"end value error")
+		assert.EqualValues(t, list[len(list)-1].VType, db.ValueTypeData,"end type error")
+		//全表扫描-降序查询
+		list, err = bPTreeImpl.SearchByRange(treeHead,nil,nil, db.DESC, size); if err != nil {
+		panic(err.Error())
+	}
+		assert.EqualValues(t, len(list), size,"key num error")
+		assert.EqualValues(t, list[0].Key, tree.PointerToBytes(size),"start key error")
+		assert.EqualValues(t, list[0].Value, tree.PointerToBytes(size),"start value error")
+		assert.EqualValues(t, list[0].VType, db.ValueTypeData,"start type error")
+		assert.EqualValues(t, list[len(list)-1].Key, tree.PointerToBytes(start),"end key error")
+		assert.EqualValues(t, list[len(list)-1].Value, tree.PointerToBytes(start),"end value error")
+		assert.EqualValues(t, list[len(list)-1].VType, db.ValueTypeData,"end type error")
+		//条件查询-升序查询
+		startKey := tree.PointerToBytes(100)
+		endKey := tree.PointerToBytes(500)
+		pageSize := tree.Pointer(401)
+		list, err = bPTreeImpl.SearchByRange(treeHead, startKey, endKey, db.ASC, pageSize); if err != nil {
+		panic(err.Error())
+	}
+		assert.EqualValues(t, len(list), pageSize,"key num error")
+		assert.EqualValues(t, list[0].Key, startKey,"start key error")
+		assert.EqualValues(t, list[0].Value, startKey,"start value error")
+		assert.EqualValues(t, list[0].VType, db.ValueTypeData,"start type error")
+		assert.EqualValues(t, list[len(list)-1].Key, endKey,"end key error")
+		assert.EqualValues(t, list[len(list)-1].Value, endKey,"end value error")
+		assert.EqualValues(t, list[len(list)-1].VType, db.ValueTypeData,"end type error")
+		//条件查询-降序查询
+		startKey = tree.PointerToBytes(500)
+		endKey = tree.PointerToBytes(100)
+		pageSize = tree.Pointer(401)
+		list, err = bPTreeImpl.SearchByRange(treeHead, startKey, endKey, db.DESC, pageSize); if err != nil {
+		panic(err.Error())
+	}
+		assert.EqualValues(t, len(list), pageSize,"key num error")
+		assert.EqualValues(t, list[0].Key, startKey,"start key error")
+		assert.EqualValues(t, list[0].Value, startKey,"start value error")
+		assert.EqualValues(t, list[0].VType, db.ValueTypeData,"start type error")
+		assert.EqualValues(t, list[len(list)-1].Key, endKey,"end key error")
+		assert.EqualValues(t, list[len(list)-1].Value, endKey,"end value error")
+		assert.EqualValues(t, list[len(list)-1].VType, db.ValueTypeData,"end type error")
+		//分页查询-升序查询
+		pageSize = tree.Pointer(15)
+		startKey = tree.PointerToBytes(start)
+		endKey = tree.PointerToBytes(pageSize)
+		list, err = bPTreeImpl.SearchByRange(treeHead, startKey, endKey, db.ASC, pageSize); if err != nil {
+		panic(err.Error())
+	}
+		assert.EqualValues(t, len(list), pageSize,"key num error")
+		assert.EqualValues(t, list[0].Key, startKey,"start key error")
+		assert.EqualValues(t, list[0].Value, startKey,"start value error")
+		assert.EqualValues(t, list[0].VType, db.ValueTypeData,"start type error")
+		assert.EqualValues(t, list[len(list)-1].Key, endKey,"end key error")
+		assert.EqualValues(t, list[len(list)-1].Value, endKey,"end value error")
+		assert.EqualValues(t, list[len(list)-1].VType, db.ValueTypeData,"end type error")
+		//分页查询-降序查询
+		pageSize = tree.Pointer(15)
+		startKey = tree.PointerToBytes(size)
+		endKey = tree.PointerToBytes(size-pageSize+1)
+		list, err = bPTreeImpl.SearchByRange(treeHead, startKey, endKey, db.DESC, pageSize); if err != nil {
+			panic(err.Error())
+		}
+		assert.EqualValues(t, len(list), pageSize,"key num error")
+		assert.EqualValues(t, list[0].Key, startKey,"start key error")
+		assert.EqualValues(t, list[0].Value, startKey,"start value error")
+		assert.EqualValues(t, list[0].VType, db.ValueTypeData,"start type error")
+		assert.EqualValues(t, list[len(list)-1].Key, endKey,"end key error")
+		assert.EqualValues(t, list[len(list)-1].Value, endKey,"end value error")
+		assert.EqualValues(t, list[len(list)-1].VType, db.ValueTypeData,"end type error")
+		//精确查询-存在
+		findKey := tree.PointerToBytes(678)
+		kv,err := bPTreeImpl.Search(treeHead, findKey); if err != nil {
+			panic(err.Error())
+		}
+		assert.EqualValues(t, kv.Key, findKey,"find key error")
+		assert.EqualValues(t, kv.Value, findKey,"find value error")
+		assert.EqualValues(t, kv.VType, db.ValueTypeData,"find type error")
+		//精确查询-不存在
+		findKey = tree.PointerToBytes(-1)
+		kv,err = bPTreeImpl.Search(treeHead, findKey); if err != nil {
+		panic(err.Error())
+	}
+		assert.Nil(t, kv,"find key error")
+
 		//统计树高，key总数
-		cache,err := createTreeNodeCache(treeHead,false); if err != nil {
-			panic(err.Error())
-		}
-		keyNum := 0
-		for i:=tree.Pointer(1);i<=treeHead.NodeNum;i++{
-			nodePosition,err := bPTreeImpl.getNodePosition(i,nil,0, cache); if err != nil {
-				panic(err.Error())
-			}
-			keyNum += len(nodePosition.Node.Keys)
-			//if nodePosition.Node.Type == nodetype
-		}
+		//cache,err := createTreeNodeCache(treeHead,false); if err != nil {
+		//	panic(err.Error())
+		//}
+		//keyNum := 0
+		//for i:=tree.Pointer(1);i<=treeHead.NodeNum;i++{
+		//	nodePosition,err := bPTreeImpl.getNodePosition(i,nil,0, cache); if err != nil {
+		//		panic(err.Error())
+		//	}
+		//	keyNum += len(nodePosition.Node.Keys)
+		//	//if nodePosition.Node.Type == nodetype
+		//}
 		fmt.Println(util.ConvertJsonString(*treeHead))
 	}
+
 
 	//主键：顺序插入1000条
 	//{

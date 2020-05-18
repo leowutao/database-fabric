@@ -66,9 +66,13 @@ func (operation *TableOperation) QueryTableData(tableName string) ([]byte,error)
 }
 
 func (operation *TableOperation) ParseTableData(table *db.Table) (Data,error) {
-	data := Data{}
-	data.Name = table.Data.Name
-	columnMaps := map[db.ColumnID]string{}
+	data := Data{
+		Name:table.Data.Name,
+		Columns:make([]db.ColumnData, 0, len(table.Data.Columns)),
+		PrimaryKey:PrimaryKey{ColumnName:table.Primary.Name,AutoIncrement:table.Data.PrimaryKey.AutoIncrement},
+		ForeignKeys:make([]ForeignKey,0 , len(table.Data.ForeignKeys)),
+	}
+	columnMaps := make(map[db.ColumnID]string, len(table.Data.Columns))
 	for _,column := range table.Data.Columns {
 		if column.IsDeleted {
 			continue
@@ -76,7 +80,6 @@ func (operation *TableOperation) ParseTableData(table *db.Table) (Data,error) {
 		data.Columns = append(data.Columns, column.ColumnData)
 		columnMaps[column.Id] = column.Name
 	}
-	data.PrimaryKey = PrimaryKey{ColumnName:table.Primary.Name,AutoIncrement:table.Data.PrimaryKey.AutoIncrement}
 	for _,foreignKey := range table.Data.ForeignKeys {
 		columnName,ok := columnMaps[foreignKey.ColumnID]
 		if ok {
@@ -109,9 +112,13 @@ func (operation *TableOperation) FormatTableData(jsonString string) (*db.TableDa
 	if err := ValidateExists(data.Name, operation.iDatabase); err != nil {
 		return nil,err
 	}
-	tableData := &db.TableData{Name:data.Name}
+	tableData := &db.TableData{
+		Name:data.Name,
+		Columns:make([]db.Column, 0, len(data.Columns)),
+		ForeignKeys:make([]db.ForeignKey, 0, len(data.ForeignKeys)),
+	}
 	var primary *db.Column
-	columnMaps := map[string]*db.Column{}
+	columnMaps := make(map[string]*db.Column, len(data.Columns))
 	for i,c := range data.Columns {
 		_,ok := columnMaps[c.Name]
 		if ok {

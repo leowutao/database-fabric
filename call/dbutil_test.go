@@ -523,7 +523,7 @@ package call
 //	if response.Status != shim.OK {
 //		panic(response.Message)
 //	}
-//	stub.MergePutData()
+//	stub.MergePutMergePutDataData()
 //}
 //
 //var TXID_NUM = 0000

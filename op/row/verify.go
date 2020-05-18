@@ -109,6 +109,10 @@ func (operation *RowOperation) FormatRowData(table *db.Table, rowJson db.JsonDat
  */
 func (operation *RowOperation) formatAddOrUpdateRowData(table *db.Table, rowJson db.JsonData, row *db.RowData) error {
 	//列数据验证和序列化
+	var adds [][]byte
+	if len(table.Data.Columns) > len(row.Data) {
+		adds = make([][]byte, 0, len(table.Data.Columns)-len(row.Data))
+	}
 	for i,column := range table.Data.Columns {
 		var data []byte
 		if i < len(row.Data) {//获取原行中列值
@@ -142,8 +146,11 @@ func (operation *RowOperation) formatAddOrUpdateRowData(table *db.Table, rowJson
 		if i < len(row.Data) {
 			row.Data[i] = data
 		}else{
-			row.Data = append(row.Data, data)
+			adds = append(adds, data)
 		}
+	}
+	if len(adds) > 0 {
+		row.Data = append(row.Data, adds...)
 	}
 	return nil
 }

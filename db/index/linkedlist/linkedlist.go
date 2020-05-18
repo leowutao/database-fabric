@@ -1,6 +1,9 @@
 package linkedlist
 
-import "gitee.com/bidpoc/database-fabric-cc/db"
+import (
+	"gitee.com/bidpoc/database-fabric-cc/db"
+	"gitee.com/bidpoc/database-fabric-cc/db/util"
+)
 
 type Pointer = int32  //节点指针类型，占用4byte(节点关键字指向下级指针大小，如果关键字和下级指针类型一致，即占用8byte)
 const (
@@ -26,4 +29,16 @@ type LinkedNode struct {
 	Prev   Pointer `json:"prev"`      //左兄弟节点指针
 	Next   Pointer `json:"next"`      //右兄弟节点指针
 	Values [][]byte `json:"values"`   //值集合
+}
+
+func BytesToPointer(value []byte) Pointer {
+	return util.BytesToInt32(value)
+}
+
+func PointerToBytes(pointer Pointer) []byte {
+	return util.Int32ToBytes(pointer)
+}
+
+func PointerToString(pointer Pointer) string {
+	return util.Int64ToString(int64(pointer))
 }

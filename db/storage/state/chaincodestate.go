@@ -14,15 +14,16 @@ type ChainCodeState interface {
 
 	PutOrDelKey(key string, value []byte, op db.StateType) error
 	GetKey(key string) ([]byte,error)
-	GetCompositeKeyList(objectTypePrefix string, objectType string, prefixKeys []string, keys []string, pageSize int32) ([]string,error)
 
-	PutOrDelData(prefix string, key string, value []byte, op db.StateType) error
-	GetDataHistory(objectTypePrefix string, keys []string, pageSize int32) ([][]byte,error)
-
-	GetCompositeKeyData(objectTypePrefix string, objectType string, keys []string, filterVersion bool) ([]byte,error)
-	PutOrDelCompositeKeyData(objectTypePrefix string, objectType string, attributes []string, value []byte, op db.StateType) error
-	GetCompositeKeyDataByVersion(objectTypePrefix string, objectType string, keys []string, versionBytes []byte) ([]byte,error)
-	GetCompositeKeyDataList(objectTypePrefix string, objectType string, prefixKeys []string, keys []string, pageSize int32, filterVersion bool) ([][]byte,error)
+	//GetCompositeKeyList(objectTypePrefix string, objectType string, prefixKeys []string, keys []string, pageSize int32) ([]string,error)
+	//
+	//PutOrDelData(prefix string, key string, value []byte, op db.StateType) error
+	//GetDataHistory(objectTypePrefix string, keys []string, pageSize int32) ([][]byte,error)
+	//
+	//GetCompositeKeyData(objectTypePrefix string, objectType string, keys []string, filterVersion bool) ([]byte,error)
+	//PutOrDelCompositeKeyData(objectTypePrefix string, objectType string, attributes []string, value []byte, op db.StateType) error
+	//GetCompositeKeyDataByVersion(objectTypePrefix string, objectType string, keys []string, versionBytes []byte) ([]byte,error)
+	//GetCompositeKeyDataList(objectTypePrefix string, objectType string, prefixKeys []string, keys []string, pageSize int32, filterVersion bool) ([][]byte,error)
 
 	//Other Function
 	GetState(collection,  key string) ([]byte,error)

@@ -29,7 +29,7 @@ func (operation *RowOperation) Delete(tableName string, rowIDs []db.RowID) ([]db
 	table,err := table.ValidateNullOfData(tableName, operation.iDatabase); if err != nil {
 		return nil,err
 	}
-	var rowJsonArray []db.JsonData
+	rowJsonArray := make([]db.JsonData, 0, len(rowIDs))
 	for _,rowID := range rowIDs {
 		rowJsonArray = append(rowJsonArray, db.JsonData{table.Primary.Name:rowID})
 	}
@@ -82,32 +82,27 @@ func (operation *RowOperation) AddOrUpdate(tableName string, jsonString string, 
 	return operation.SetRow(table, rowJsonArray, op)
 }
 
+/**
+	行记录汇总
+*/
 func (operation *RowOperation) SetRow(table *db.Table, rowJsonArray []db.JsonData, op db.OpType) ([]db.RowID,error) {
-	var rows []*db.RowData
+	rowMaps := make(map[db.RowID]*db.RowData, len(rowJsonArray))
+	rowIDs := make([]db.RowID, 0, len(rowJsonArray))
+	newRows := make([]*db.RowData, 0, len(rowJsonArray))
+	var incrementRows []*db.RowData
+	if op == db.ADD {
+		incrementRows = make([]*db.RowData, 0, len(rowJsonArray))
+	}
 	for _,rowJson := range rowJsonArray {
 		row,err := operation.FormatRowData(table, rowJson, op); if err != nil {
 			return nil,err
 		}
-		rows = append(rows, row)
-	}
-	return operation.PutRow(table.Data, rows)
-}
-
-/**
-	行记录汇总
- */
-func (operation *RowOperation) PutRow(table *db.TableData, rows []*db.RowData) ([]db.RowID,error) {
-	rowMaps := map[db.RowID]*db.RowData{}
-	var rowIDs []db.RowID
-	var newRows []*db.RowData
-	var incrementRows []*db.RowData
-	for _,row := range rows {
 		if row.Id == 0 {
-			if table.PrimaryKey.AutoIncrement {//自增行不合并
+			if table.Data.PrimaryKey.AutoIncrement {//自增行不合并
 				incrementRows = append(incrementRows, row)
 				continue
 			}else{
-				return nil,fmt.Errorf("PutRow rowID is null")
+				return nil,fmt.Errorf("SetRow rowID is null")
 			}
 		}
 		prev,ok := rowMaps[row.Id]
@@ -121,10 +116,9 @@ func (operation *RowOperation) PutRow(table *db.TableData, rows []*db.RowData) (
 		}
 	}
 	newRows = append(newRows, incrementRows...)//自增行追加到尾端
-	err := operation.iDatabase.AddRowData(table, newRows); if err != nil {
+	err := operation.iDatabase.AddRowData(table.Data, newRows); if err != nil {
 		return nil,err
 	}
-
 	return rowIDs,nil
 }
 
@@ -147,7 +141,7 @@ func (operation *RowOperation) QueryRowWithPagination(table *db.Table, start db.
 	rows,err := operation.iDatabase.QueryRowDataByRange(table.Data, start, end, order, pageSize); if err != nil {
 		return pagination,err
 	}
-	var list []db.JsonData
+	list := make([]db.JsonData, 0, len(rows))
 	for _,rowData := range rows {
 		if rowData != nil && rowData.Id > 0 {
 			rowJson := db.JsonData{}

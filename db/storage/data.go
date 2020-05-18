@@ -71,37 +71,37 @@ func (storage *CommonStorage) findName(key string, name string) (int,error) {
 }
 
 func (storage *CommonStorage) getChainDataKey() string {
-	return storage.state.PrefixAddKey(db.ChainPrefix, string(db.ChainKeyType))
+	return storage.state.PrefixAddKey(db.ChainPrefix, util.UInt8ToString(db.ChainKeyType))
 }
 
 func (storage *CommonStorage) getDataBaseDataKey(database db.DatabaseID) string {
-	return storage.state.PrefixAddKey(string(db.DataBaseKeyType), string(database))
+	return storage.state.PrefixAddKey(util.UInt8ToString(db.DataBaseKeyType), util.DatabaseIDToString(database))
 }
 
 func (storage *CommonStorage) getRelationDataKey(database db.DatabaseID) string {
-	return storage.state.PrefixAddKey(string(db.RelationKeyType), string(database))
+	return storage.state.PrefixAddKey(util.UInt8ToString(db.RelationKeyType), util.DatabaseIDToString(database))
 }
 
 func (storage *CommonStorage) getTallyDataKey(database db.DatabaseID, table db.TableID) string {
-	return storage.state.PrefixAddKey(string(db.TallyKeyType), storage.state.CompositeKey(string(database), string(table)))
+	return storage.state.PrefixAddKey(util.UInt8ToString(db.TallyKeyType), storage.state.CompositeKey(util.DatabaseIDToString(database), util.TableIDToString(table)))
 }
 
 func (storage *CommonStorage) getTableDataKey(database db.DatabaseID, table db.TableID) string {
-	return storage.state.PrefixAddKey(string(db.TableKeyType), storage.state.CompositeKey(string(database), string(table)))
+	return storage.state.PrefixAddKey(util.UInt8ToString(db.TableKeyType), storage.state.CompositeKey(util.DatabaseIDToString(database), util.TableIDToString(table)))
 }
 
 func (storage *CommonStorage) getBlockDataKey(database db.DatabaseID, table db.TableID, block db.BlockID) string {
-	return storage.state.PrefixAddKey(string(db.BlockKeyType), storage.state.CompositeKey(string(database), string(table), string(block)))
+	return storage.state.PrefixAddKey(util.UInt8ToString(db.BlockKeyType), storage.state.CompositeKey(util.DatabaseIDToString(database), util.TableIDToString(table), util.BlockIDToString(block)))
 }
 
 func (storage *CommonStorage) getIndexDataKey(indexType db.IndexType, key db.ColumnKey, values ...string) string {
-	compositeKey := storage.state.CompositeKey(string(key.Database), string(key.Table), string(key.Column))
+	compositeKey := storage.state.CompositeKey(util.DatabaseIDToString(key.Database), util.TableIDToString(key.Table), util.ColumnIDToString(key.Column))
 	for _,val := range values {
 		if len(val) > 0 {
-			storage.state.CompositeKey(compositeKey, val)
+			compositeKey = storage.state.CompositeKey(compositeKey, val)
 		}
 	}
-	return storage.state.PrefixAddKey(storage.state.PrefixAddKey(string(db.IndexKeyType), string(indexType)), compositeKey)
+	return storage.state.PrefixAddKey(storage.state.PrefixAddKey(util.UInt8ToString(db.IndexKeyType), util.UInt8ToString(indexType)), compositeKey)
 }
 
 func (storage *CommonStorage) createDataBase(name string) (db.DatabaseID,error) {
@@ -287,19 +287,19 @@ func NewLinkedListStorage(state state.ChainCodeState) *LinkedListStorage {
 }
 
 func (storage *LinkedListStorage) PutHead(key db.ColumnRowKey, value []byte) error {
-	return storage.state.PutOrDelKey(storage.getIndexDataKey(db.LinkedHeadIndexType, key.ColumnKey, string(key.Row)), value, db.SetState)
+	return storage.state.PutOrDelKey(storage.getIndexDataKey(db.LinkedHeadIndexType, key.ColumnKey, util.RowIDToString(key.Row)), value, db.SetState)
 }
 
 func (storage *LinkedListStorage) GetHead(key db.ColumnRowKey) ([]byte,error) {
-	return storage.state.GetKey(storage.getIndexDataKey(db.LinkedHeadIndexType, key.ColumnKey, string(key.Row)))
+	return storage.state.GetKey(storage.getIndexDataKey(db.LinkedHeadIndexType, key.ColumnKey, util.RowIDToString(key.Row)))
 }
 
 func (storage *LinkedListStorage) PutNode(key db.ColumnRowKey, pointer string, value []byte) error {
-	return storage.state.PutOrDelKey(storage.getIndexDataKey(db.LinkedNodeIndexType, key.ColumnKey, string(key.Row), pointer), value, db.SetState)
+	return storage.state.PutOrDelKey(storage.getIndexDataKey(db.LinkedNodeIndexType, key.ColumnKey, util.RowIDToString(key.Row), pointer), value, db.SetState)
 }
 
 func (storage *LinkedListStorage) GetNode(key db.ColumnRowKey, pointer string) ([]byte,error) {
-	return storage.state.GetKey(storage.getIndexDataKey(db.LinkedNodeIndexType, key.ColumnKey, string(key.Row), pointer))
+	return storage.state.GetKey(storage.getIndexDataKey(db.LinkedNodeIndexType, key.ColumnKey, util.RowIDToString(key.Row), pointer))
 }
 
 

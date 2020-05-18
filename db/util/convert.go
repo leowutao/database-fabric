@@ -219,9 +219,13 @@ func Int64ToBytes(value int64) []byte {
 }
 
 func IntToBytes(value interface{}) []byte {
-	putBuf := bytes .NewBuffer([]byte{})
+	putBuf := bytes.NewBuffer([]byte{})
 	binary.Write(putBuf, binary.BigEndian, value)
 	return putBuf.Bytes()
+}
+
+func UInt8ToString(value uint8) string {
+	return Int64ToString(int64(value))
 }
 
 func Int64ToString(value int64) string {
@@ -319,20 +323,51 @@ func DecimalToString(value decimal.Decimal) string {
 }
 
 //////////////////// ID Convert or Parse ////////////////////
+func DatabaseIDToString(database db.DatabaseID) string {
+	return Int64ToString(int64(database))
+}
+
+func TableIDToString(table db.TableID) string {
+	return Int64ToString(int64(table))
+}
+
+func ColumnIDToString(column db.ColumnID) string {
+	return Int64ToString(int64(column))
+}
+
+func BlockIDToString(block db.BlockID) string {
+	return Int64ToString(int64(block))
+}
+
+func RowIDToString(row db.RowID) string {
+	return Int64ToString(int64(row))
+}
 
 func BlockIDToBytes(blockID db.BlockID) []byte {
+	if blockID == db.BlockID(0) {
+		return nil
+	}
 	return Int32ToBytes(blockID)
 }
 
 func BytesToBlockID(value []byte) db.BlockID {
+	if len(value) == 0 {
+		return db.BlockID(0)
+	}
 	return BytesToInt32(value)
 }
 
 func RowIDToBytes(rowID db.RowID) []byte {
+	if rowID == db.RowID(0) {
+		return nil
+	}
 	return Int64ToBytes(rowID)
 }
 
 func BytesToRowID(value []byte) db.RowID {
+	if len(value) == 0 {
+		return db.RowID(0)
+	}
 	return BytesToInt64(value)
 }
 
@@ -453,7 +488,7 @@ func ParseColumnData(column db.Column, value []byte) (interface{},error) {
 		case db.VARCHAR:
 			return string(value),nil
 		case db.BOOL:
-			return StringToBool(string(value)),nil
+			return StringToBool(string(value))
 		case db.INT:
 			return BytesToInt64(value),nil
 		case db.DECIMAL:

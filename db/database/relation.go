@@ -6,7 +6,7 @@ import (
 )
 
 func GetRelationKeysByReference(reference db.ReferenceKey, relation *db.Relation) ([]db.RelationKey,error) {
-	var keys []db.RelationKey
+	keys := make([]db.RelationKey, 0, len(relation.Keys))
 	for _,relationKey := range relation.Keys {
 		if relationKey.IsDeleted {//过滤删除的关系
 			continue

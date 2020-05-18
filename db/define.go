@@ -97,6 +97,14 @@ const (
 	DESC
 )
 
+type JoinType = uint8
+const (
+	JoinTypeNone JoinType = iota //不连接
+	//(存在分裂，记录行列表最后一条行部分数据包含在下一个块中)
+	JoinTypeRow //行值连接
+	JoinTypeColumn //列值连接
+)
+
 //以下定义每个类型索引位置，使用ID别名，值从1开始，即对应索引为i-1
 type DatabaseID = int8
 type TableID = int16
@@ -110,8 +118,10 @@ type TableNames = map[TableID]string
 type ForeignKeys = map[ColumnID]*ForeignKey
 
 //行与记录块包装结构
-type RowBlockID = map[RowID]BlockID
-type RowHistoryBlockID = map[RowID][]BlockID
+type RowBlockID struct {
+	RowID RowID
+	BlockID BlockID
+}
 type RowDataHistory struct {
 	Tx *TxData
 	Row *RowData
@@ -156,7 +166,7 @@ type BlockData struct {
 	Id BlockID `json:"id"`
 	TxData
 	Rows []RowData `json:"rows"` //行数据列表
-	SplitPosition int16 `json:"splitPosition"` //记录行列表最后一条拆分行数据位置(从1开始)，方便多个块之间行数据连接
+	Join JoinType `json:"join"` //块连接方式
 }
 
 //行数据
@@ -167,7 +177,7 @@ type RowData struct {
 }
 
 type TableTally struct {
-	tableID TableID `json:"tableID"`
+	TableID TableID `json:"tableID"`
 	Increment RowID `json:"increment"`
 	AddRow RowID `json:"addRow"`
 	UpdateRow RowID `json:"updateRow"`

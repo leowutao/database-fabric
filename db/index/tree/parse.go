@@ -14,8 +14,11 @@ func(parse *Parse) CollectionPointer(value []byte) ([]Pointer, error) {
 		return nil,err
 	}
 	var values []Pointer
-	for _,v := range collection {
-		values = append(values, BytesToPointer(v))
+	if len(collection) > 0 {
+		values = make([]Pointer, 0, len(collection))
+		for _,v := range collection {
+			values = append(values, BytesToPointer(v))
+		}
 	}
 	return values,nil
 }
@@ -25,8 +28,11 @@ func(parse *Parse) CollectionString(value []byte) ([]string, error) {
 		return nil,err
 	}
 	var values []string
-	for _,v := range collection {
-		values = append(values, string(v))
+	if len(collection) > 0 {
+		values = make([]string, 0, len(collection))
+		for _,v := range collection {
+			values = append(values, fmt.Sprintf("%v",v))
+		}
 	}
 	return values,nil
 }

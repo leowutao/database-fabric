@@ -33,7 +33,7 @@ func (operation *HistoryOperation) QueryRowHistoryWithPagination(table *db.Table
 	rows,total,err := operation.iDatabase.QueryRowDataHistoryByRange(table.Data, rowID, order, pageSize); if err != nil {
 		return pagination,err
 	}
-	var list []db.JsonData
+	list := make([]db.JsonData, 0, len(rows))
 	for _,history := range rows {
 		if history == nil {
 			continue

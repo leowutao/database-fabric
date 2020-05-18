@@ -21,15 +21,12 @@ type IndexService struct {
 }
 
 func NewIndexService(state state.ChainCodeState) *IndexService {
-	var iInsert *tree.InsertInterface
-	*iInsert = nil
-	var iTree tree.TreeInterface
-	iTree = bptree.NewBPTreeImpl(storage.NewBPTreeStorage(state), tree.NewDefaultValue(iInsert))
+	var iInsert tree.InsertInterface
+	var iTree tree.TreeInterface = bptree.NewBPTreeImpl(storage.NewBPTreeStorage(state), tree.NewDefaultValue(&iInsert))
 	treeHeadMap := map[string]*tree.TreeHead{}
-	var iLinked linkedlist.LinkedListInterface
-	iLinked = linkedlist.NewLinkedListImpl(storage.NewLinkedListStorage(state))
+	var iLinked linkedlist.LinkedListInterface = linkedlist.NewLinkedListImpl(storage.NewLinkedListStorage(state))
 	linkedHeadMap := map[string]*linkedlist.LinkedHead{}
-	return &IndexService{storage.NewIndexStorage(state),NewPrimaryInsertImpl(),iInsert,iTree,treeHeadMap,iLinked,linkedHeadMap}
+	return &IndexService{storage.NewIndexStorage(state),NewPrimaryInsertImpl(),&iInsert,iTree,treeHeadMap,iLinked,linkedHeadMap}
 }
 
 ///////////////////// Tree Function //////////////////////
@@ -45,7 +42,7 @@ func (service *IndexService) getITree(primary bool) tree.TreeInterface {
 
 func (service *IndexService) getTreeHead(key db.ColumnKey) (*tree.TreeHead,error) {
 	var err error
-	name := string(key.Database)+"~"+string(key.Table)+"~"+string(key.Column)
+	name := util.DatabaseIDToString(key.Database)+"_"+util.TableIDToString(key.Table)+"_"+util.ColumnIDToString(key.Column)
 	treeHead, ok := service.treeHeadMap[name]
 	if ok {
 		return treeHead,nil
@@ -66,7 +63,7 @@ func (service *IndexService) getILinked() linkedlist.LinkedListInterface {
 func (service *IndexService) getLinkedHead(columnKey db.ColumnKey, rowID db.RowID) (*linkedlist.LinkedHead,error) {
 	var err error
 	key := db.ColumnRowKey{ColumnKey:columnKey,Row:rowID}
-	name := string(key.Database)+"~"+string(key.Table)+"~"+string(key.Column)+"~"+string(key.Row)
+	name := util.DatabaseIDToString(key.Database)+"_"+util.TableIDToString(key.Table)+"_"+util.ColumnIDToString(key.Column)+"_"+util.RowIDToString(key.Row)
 	linkedHead, ok := service.linkedHeadMap[name]
 	if ok {
 		return linkedHead,nil
@@ -110,6 +107,9 @@ func (service *IndexService) getIndexDataValues(columnKey db.ColumnKey, kv *db.K
 		total := db.Total(len(values))
 		if total > 1 && order == db.DESC {//数组反转
 			values = service.primaryInsert.parse.CollectionFlip(values)
+		}
+		if size >= int32(len(values)) {
+			return values,total,nil
 		}
 		return values[:size],total,nil
 	}else{
@@ -169,12 +169,12 @@ func (service *IndexService) GetPrimaryKeyIndex(database db.DatabaseID, table *d
 	return 0,nil
 }
 
-func (service *IndexService) GetPrimaryKeyIndexByRange(database db.DatabaseID, table *db.TableData, start db.RowID, end db.RowID, order db.OrderType, size int32) (db.RowBlockID,error) {
+func (service *IndexService) GetPrimaryKeyIndexByRange(database db.DatabaseID, table *db.TableData, start db.RowID, end db.RowID, order db.OrderType, size int32) ([]db.RowBlockID,error) {
 	columnKey := db.ColumnKey{Database:database,Table:table.Id,Column:table.PrimaryKey.ColumnID}
 	kvList,err := service.getIndexDataByRange(columnKey, util.RowIDToBytes(start), util.RowIDToBytes(end), order, size,true); if err != nil {
 		return nil,err
 	}
-	return service.primaryInsert.parse.RowBlockID(kvList)
+	return service.primaryInsert.parse.RowBlockIDList(kvList)
 }
 
 func (service *IndexService) GetPrimaryKeyIndexHistoryByRange(database db.DatabaseID, table *db.TableData, rowID db.RowID, order db.OrderType, size int32) ([]db.BlockID,db.Total,error) {

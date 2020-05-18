@@ -90,7 +90,7 @@ func (service *BPTreeImpl) putNode(cache *TreeNodeCache) error {
 	for pointer, nodePosition := range cache.Write {
 		//fmt.Println(nodePosition.Node.Keys)
 		//fmt.Println(nodePosition.Node.Values)
-		//fmt.Println(t.ConvertJsonString(*nodePosition.Node))
+		//fmt.Println(util.ConvertJsonString(*nodePosition.Node))
 		nodeBytes, err := util.ConvertJsonBytes(*nodePosition.Node)
 		if err != nil {
 			return err
@@ -149,22 +149,27 @@ func (service *BPTreeImpl) findPosition(key []byte, cache *TreeNodeCache) (*Tree
 }
 
 func (service *BPTreeImpl) recursionNode(nodePosition *TreeNodePosition, key []byte, cache *TreeNodeCache) (*TreeKeyData, error) {
-	if len(nodePosition.Node.Keys) == 0 { //节点为空，无法递归
-		return nil, fmt.Errorf("recursionNode node `%d` is null", nodePosition.Pointer)
-	}
-	keyData, err := nodePosition.binarySearch(key)
-	if err != nil {
-		return nil, err
-	}
-	if nodePosition.Node.Type == tree.NodeTypeLeaf { //递归到最底层叶子节点
-		return &keyData, nil
-	} else { //递归查找下级节点
-		lower, err := service.getNodePosition(tree.BytesToPointer(keyData.Data.Value), nodePosition, keyData.KeyPosition.Position, cache)
+	var keyData TreeKeyData
+	var err error
+	for i:=int8(0);i<cache.Head.Height;i++ {
+		temp := nodePosition
+		if len(temp.Node.Keys) == 0 { //节点为空，无法递归
+			return nil, fmt.Errorf("recursionNode node `%d` is null", temp.Pointer)
+		}
+		keyData,err = temp.binarySearch(key)
 		if err != nil {
 			return nil, err
 		}
-		return service.recursionNode(lower, key, cache)
+		if temp.Node.Type == tree.NodeTypeLeaf { //递归到最底层叶子节点
+			return &keyData, nil
+		} else { //递归查找下级节点
+			nodePosition,err = service.getNodePosition(tree.BytesToPointer(keyData.Data.Value), temp, keyData.KeyPosition.Position, cache)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
+	return &keyData,nil
 }
 
 /*
@@ -209,7 +214,7 @@ func (service *BPTreeImpl) rangeSearchByDesc(node *tree.TreeNode, position Posit
 		return false,nil
 	}
 	isLoop := true
-	for i:=position;i>0;i--{
+	for i:=position;i>=0;i--{
 		key := node.Keys[i]
 		compare := 1 //默认为大于
 		if len(endKey) > 0 {//endKey值不为空比较区间是否超出
@@ -233,10 +238,14 @@ func (service *BPTreeImpl) rangeSearchByDesc(node *tree.TreeNode, position Posit
 	return isLoop,nil
 }
 
-func (service *BPTreeImpl) printNode(nodePosition *TreeNodePosition, height int8, str []string, printData bool, cache *TreeNodeCache) ([]string, error) {
+func (service *BPTreeImpl) printNode(nodePosition *TreeNodePosition, height int8, str *[]string, printData bool, cache *TreeNodeCache) error {
+	if height >= int8(len(*str)) {
+		return nil
+	}
 	space := ""
-	height = height + 2
 	node := nodePosition.Node
+	height = height + 1
+
 	for i, k := range node.Keys {
 		value := node.Values[i]
 		printKey := ""
@@ -247,35 +256,37 @@ func (service *BPTreeImpl) printNode(nodePosition *TreeNodePosition, height int8
 				printKey = fmt.Sprintf("(%v->&%d) %s", k, pointer, space)
 			}
 		} else if printData {
-			kv,err := service.parseValue(k, value); if err != nil {
-				return nil,err
+			kv, err := service.parseValue(k, value);
+			if err != nil {
+				return err
 			}
-			cv,err := service.iValue.ToString(kv.Value, kv.VType); if err != nil {
-				return nil,err
+			cv, err := service.iValue.ToString(kv.Value, kv.VType);
+			if err != nil {
+				return err
 			}
 			printKey = fmt.Sprintf("(%v:%s) %s", k, cv, space)
 		}
 		if i == 0 {
-			printKey = fmt.Sprintf("&%d(prev:%d,next:%d)【 %s", nodePosition.Pointer, node.Prev, node.Next, printKey)
+			size,err := GetNodeSize(node); if err != nil {
+				return err
+			}
+			printKey = fmt.Sprintf("&%d(size:%d,len:%d,prev:%d,next:%d)【 %s", nodePosition.Pointer, size, len(node.Keys), node.Prev, node.Next, printKey)
 		}
 		if i == len(node.Keys)-1 {
 			printKey = printKey + "】     "
 		}
-		str[height-1] = str[height-1] + printKey
-		//printValue := fmt.Sprintf("%v%s", value, space)
-		//str[height] = str[height] + printValue
+		(*str)[height-1] = (*str)[height-1] + printKey
 		if pointer > 0 {
-			childNode, err := service.getNodePosition(pointer, nodePosition, -1, cache)
+			next, err := service.getNodePosition(pointer, nodePosition, -1, cache)
 			if err != nil {
-				return nil, err
+				return  err
 			}
-			str, err = service.printNode(childNode, height, str, printData, cache)
-			if err != nil {
-				return nil, err
+			err = service.printNode(next, height, str, printData, cache); if err != nil {
+				return  err
 			}
 		}
 	}
-	return str, nil
+	return nil
 }
 
 func (service *BPTreeImpl) parseValue(key []byte, value []byte) (*db.KV,error) {
@@ -432,7 +443,7 @@ func (service *BPTreeImpl) SearchByRange(head *tree.TreeHead, startKey []byte, e
 		}
 	}
 	if node != nil {
-		var list []*db.KV
+		list := make([]*db.KV, 0, size)
 		isLoop := true
 		for isLoop {
 			pointer := tree.Pointer(0)
@@ -459,7 +470,7 @@ func (service *BPTreeImpl) SearchByRange(head *tree.TreeHead, startKey []byte, e
 				if order == db.ASC {
 					position = Position(0)
 				}else{
-					position = Position(len(node.Keys))
+					position = Position(len(node.Keys)-1)
 				}
 			}else{
 				isLoop = false
@@ -483,13 +494,15 @@ func (service *BPTreeImpl) Print(head *tree.TreeHead, printData bool) error {
 	}
 
 	str := make([]string, head.Height*2)
-	str, err = service.printNode(nodePosition, -1, str, printData, cache)
+	err = service.printNode(nodePosition,0, &str, printData, cache)
 	if err != nil {
 		return err
 	}
 	fmt.Println(util.ConvertJsonString(*head))
+	fmt.Println()
 	for _, v := range str {
 		fmt.Println(v)
+		fmt.Println()
 	}
 	return nil
 }

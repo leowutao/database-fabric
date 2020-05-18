@@ -40,7 +40,7 @@ func (service *LinkedListImpl) createHead(key db.ColumnRowKey) (*LinkedHead, err
 		return nil, err
 	}
 	if head == nil  {
-		head = &LinkedHead{}
+		head = &LinkedHead{Key:key}
 	}
 	return head, nil
 }
@@ -84,6 +84,7 @@ func (service *LinkedListImpl) putNode(nodes map[Pointer]*LinkedNode, head *Link
 		if err := service.storage.PutNode(head.Key, util.Int64ToString(int64(pointer)), nodeBytes); err != nil {
 			return err
 		}
+		node = nil
 	}
 	headBytes, err := util.ConvertJsonBytes(*head)
 	if err != nil {
@@ -92,6 +93,7 @@ func (service *LinkedListImpl) putNode(nodes map[Pointer]*LinkedNode, head *Link
 	if err := service.storage.PutHead(head.Key, headBytes); err != nil {
 		return err
 	}
+	head = nil
 	return nil
 }
 
@@ -140,7 +142,7 @@ func (service *LinkedListImpl) rangeSearchByOrder(node *LinkedNode, order db.Ord
 			}
 		}else{
 			i++
-			if i > length {
+			if i >= length {
 				break
 			}
 		}
@@ -164,7 +166,7 @@ func (service *LinkedListImpl) SearchHead(key db.ColumnRowKey) (*LinkedHead, err
 }
 
 /*
-	插入值到链表中
+	插入值到链表中,只允许顺序插入(排序需要外部控制)
 */
 func (service *LinkedListImpl) Insert(head *LinkedHead, values [][]byte) error {
 	if head == nil {
@@ -173,6 +175,7 @@ func (service *LinkedListImpl) Insert(head *LinkedHead, values [][]byte) error {
 	var err error
 	var pointer Pointer
 	var node *LinkedNode
+	head.Num = head.Num + int64(len(values))
 	if head.Order == 0 {
 		pointer,node = service.createNode(nil, head)
 	}else{
@@ -181,27 +184,27 @@ func (service *LinkedListImpl) Insert(head *LinkedHead, values [][]byte) error {
 			return err
 		}
 	}
-	nodes := map[Pointer]*LinkedNode{}
+	nodes := make(map[Pointer]*LinkedNode)
 	nodes[pointer] = node
-	for _,value := range values {
+	temp := make([][]byte, 0, len(values))
+	for i,value := range values {
 		split,err := IsSplit(value, node); if err != nil {
 			return err
 		}
 		if split {
+			node.Values = append(node.Values, temp...)
+			temp = make([][]byte, 0, len(values)-i)
 			pointer,node = service.createNode(node, head)
 			nodes[pointer] = node
-			node.Values = append(node.Values, value)
-		}else{
-			node.Values = append(node.Values, value)
 		}
+		temp = append(temp, value)
 	}
+	node.Values = append(node.Values, temp...)
 	return service.putNode(nodes, head)
 }
 
 /**
-	区间查询，支持排序，分页
-	升序：startKey为空默认为最左，endKey为空默认为最右
-	降序：startKey为空默认为最右，endKey为空默认为最左
+	分页查询，支持正向和逆向
 */
 func (service *LinkedListImpl) SearchByRange(head *LinkedHead, order db.OrderType, size Pointer) ([][]byte,db.Total,error){
 	if head == nil {
@@ -219,16 +222,15 @@ func (service *LinkedListImpl) SearchByRange(head *LinkedHead, order db.OrderTyp
 		}
 	}
 	if node != nil {
-		var list [][]byte
-		isLoop := true
-		for isLoop {
+		list := make([][]byte, 0, size)
+		for {
 			pointer := Pointer(0)
 			if order == db.ASC {
 				pointer = node.Next
 			}else{
 				pointer = node.Prev
 			}
-			isLoop,err = service.rangeSearchByOrder(node, order, &size, &list); if err != nil {
+			isLoop,err := service.rangeSearchByOrder(node, order, &size, &list); if err != nil {
 				return nil,0,err
 			}
 			node = nil//查询完node设置为空释放内存
@@ -237,7 +239,7 @@ func (service *LinkedListImpl) SearchByRange(head *LinkedHead, order db.OrderTyp
 					return nil,0,err
 				}
 			}else{
-				isLoop = false
+				break
 			}
 		}
 		return list,head.Num,nil
@@ -250,19 +252,20 @@ func (service *LinkedListImpl) Print(head *LinkedHead) error {
 		return fmt.Errorf("linkedlist head is null")
 	}
 	fmt.Println(util.ConvertJsonString(*head))
-	printKey := ""
 	pointer := head.First
 	for pointer > 0 && pointer <= head.Last {
 		node,err := service.getNode(pointer, head); if err != nil {
 			return err
 		}
-		printKey += fmt.Sprintf("%d(", pointer)
+		size,err := GetNodeSize(node); if err != nil {
+			return err
+		}
+		printKey := fmt.Sprintf("&%d(size:%d,len:%d,prev:%d,next:%d)【 ", pointer, size, len(node.Values), node.Prev, node.Next)
 		for _,v := range node.Values {
 			printKey += fmt.Sprintf("%v,", v)
 		}
-		printKey += ")   "
+		fmt.Println(printKey+"】")
 		pointer = node.Next
 	}
-	fmt.Println(printKey)
 	return nil
 }

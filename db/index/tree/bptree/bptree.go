@@ -97,11 +97,23 @@ func (cache *TreeNodeCache) setRead(nodePosition *TreeNodePosition) {
 func (cache *TreeNodeCache) setWrite(nodePosition *TreeNodePosition) {
 	cache.Write[nodePosition.Pointer] = nodePosition
 	if nodePosition.Node.Type == tree.NodeTypeLeaf {//记录叶子头节点和叶子尾节点
-		if nodePosition.Prev == nil {
-			cache.Head.FirstLeaf = nodePosition.Pointer
+		if cache.Head.FirstLeaf == 0 {
+			if nodePosition.Prev == nil {
+				cache.Head.FirstLeaf = nodePosition.Pointer
+			}
+		}else if nodePosition.Pointer == cache.Head.FirstLeaf {
+			if nodePosition.Prev != nil {
+				cache.Head.FirstLeaf = nodePosition.Prev.Pointer
+			}
 		}
-		if nodePosition.Next == nil {
-			cache.Head.LastLeaf = nodePosition.Pointer
+		if cache.Head.LastLeaf == 0 {
+			if nodePosition.Next == nil {
+				cache.Head.LastLeaf = nodePosition.Pointer
+			}
+		}else if nodePosition.Pointer == cache.Head.LastLeaf {
+			if nodePosition.Next != nil {
+				cache.Head.LastLeaf = nodePosition.Next.Pointer
+			}
 		}
 	}
 }
@@ -354,7 +366,7 @@ func (split *TreeSplit) splitToRootNode(rightNodePosition *TreeNodePosition) err
 	rightNodePosition.Position = Position(1)
 	rightNodePosition.Parent = rootNodePosition
 	if node.Type == tree.NodeTypeRoot {
-		nodePosition.Node.Type = tree.NodeTypeChild
+		node.Type = tree.NodeTypeChild
 		rightNodePosition.Node.Type = tree.NodeTypeChild
 	}
 	split.Cache.Head.Root = rootNodePosition.Pointer
@@ -483,8 +495,8 @@ func (split *TreeSplit) moveKey() error {
 				position++
 			}
 			//动态增加数组长度
-			node.Keys = append(node.Keys, nil)
-			node.Values = append(node.Values, nil)
+			node.Keys = append(node.Keys,nil)
+			node.Values = append(node.Values,nil)
 			//从move位置之后所有元素往右移动
 			for i := keyNum; i > move; i-- {
 				node.Keys[i] = node.Keys[i-1]

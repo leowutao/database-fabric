@@ -3,7 +3,6 @@ package tree
 import (
 	"fmt"
 	"gitee.com/bidpoc/database-fabric-cc/db"
-	"gitee.com/bidpoc/database-fabric-cc/db/util"
 )
 
 type DefaultValue struct {
@@ -55,7 +54,7 @@ func(valueImpl *DefaultValue) ToString(value []byte, valueType db.IndexValueType
 		collection,err := (*valueImpl.iInsert).GetParse().CollectionString(value); if err != nil {
 			return "",err
 		}
-		return util.ConvertJsonString(collection)
+		return fmt.Sprintf("%v",collection),nil
 	}
 	return "", fmt.Errorf("parse value to string tree.ValueType error")
 }
