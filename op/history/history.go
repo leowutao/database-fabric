@@ -38,11 +38,11 @@ func (operation *HistoryOperation) QueryRowHistoryWithPagination(table *db.Table
 		if history == nil {
 			continue
 		}
-		historyJson := db.JsonData{"tx":history.Tx.TxID,"time":history.Tx.Time}
+		historyJson := db.JsonData{"tx":history.TxID,"time":history.Time}
 		rowData := history.Row
 		if rowData != nil && rowData.Id > 0 {
 			rowJson := db.JsonData{}
-			if len(rowData.Data) > 0 {
+			if len(rowData.Columns) > 0 {
 				rowJson,err = util.ParseRowData(table, rowData); if err != nil {
 					return pagination,err
 				}

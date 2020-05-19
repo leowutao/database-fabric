@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"gitee.com/bidpoc/database-fabric-cc/db"
 	"gitee.com/bidpoc/database-fabric-cc/db/block"
+	"gitee.com/bidpoc/database-fabric-cc/db/protos"
 	"gitee.com/bidpoc/database-fabric-cc/db/storage"
 	"gitee.com/bidpoc/database-fabric-cc/db/storage/state"
 	"gitee.com/bidpoc/database-fabric-cc/db/table"
@@ -126,7 +127,7 @@ func (service *DatabaseImpl) QueryTableDataByID(tableID db.TableID) (*db.TableDa
 	return service.getTableService().QueryTable(tableID)
 }
 
-func (service *DatabaseImpl) AddRowData(table *db.TableData, rows []*db.RowData) error {
+func (service *DatabaseImpl) AddRowData(table *db.TableData, rows []*protos.RowData) error {
 	tally,err := service.GetTableTally(table.Id); if err != nil {
 		return err
 	}
@@ -144,7 +145,7 @@ func (service *DatabaseImpl) QueryRowBlockID(table *db.TableData, rowID db.RowID
 	return service.getBlockService().QueryRowBlockID(table, rowID)
 }
 
-func (service *DatabaseImpl) QueryRowData(table *db.TableData, rowID db.RowID) (*db.RowData,error) {
+func (service *DatabaseImpl) QueryRowData(table *db.TableData, rowID db.RowID) (*protos.RowData,error) {
 	return service.getBlockService().QueryRowData(table, rowID)
 }
 
@@ -152,7 +153,7 @@ func (service *DatabaseImpl) QueryRowIDByForeignKey(tableID db.TableID, foreignK
 	return service.getBlockService().QueryRowIDByForeignKey(tableID, foreignKey, referenceRowID, size)
 }
 
-func (service *DatabaseImpl) QueryRowDataByRange(table *db.TableData, start db.RowID, end db.RowID, order db.OrderType, size int32) ([]*db.RowData,error) {
+func (service *DatabaseImpl) QueryRowDataByRange(table *db.TableData, start db.RowID, end db.RowID, order db.OrderType, size int32) ([]*protos.RowData,error) {
 	return service.getBlockService().QueryRowDataByRange(table, start, end, order, size)
 }
 

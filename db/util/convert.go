@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"gitee.com/bidpoc/database-fabric-cc/db"
+	"gitee.com/bidpoc/database-fabric-cc/db/protos"
 	"github.com/shopspring/decimal"
 	"net/url"
 	"reflect"
@@ -437,30 +438,30 @@ func FormatColumnData(column db.Column, value interface{}) ([]byte,error) {
 }
 
 
-func ParseRowData(table *db.Table, rowData *db.RowData) (db.JsonData,error) {
+func ParseRowData(table *db.Table, rowData *protos.RowData) (db.JsonData,error) {
 	var err error
 	dataLength := 0
 	if rowData != nil {
-		dataLength = len(rowData.Data)
+		dataLength = len(rowData.Columns)
 	}
 	row := db.JsonData{}
 	for i,column := range table.Data.Columns {
 		if column.IsDeleted {
 			continue
 		}
-		var data []byte
+		columnData := &protos.ColumnData{}
 		if rowData != nil && i < dataLength {
-			data = rowData.Data[i]
+			columnData = rowData.Columns[i]
 		}else{
-			data = column.Default
+			columnData.Data = column.Default
 		}
 		var value interface{}
-		if len(data) == 0 {
+		if len(columnData.Data) == 0 {
 			value,err = ParseColumnDataByNull(column); if err != nil {
 				return nil,err
 			}
 		}else {
-			value,err = ParseColumnData(column, data); if err != nil {
+			value,err = ParseColumnData(column, columnData.Data); if err != nil {
 				return nil,err
 			}
 		}

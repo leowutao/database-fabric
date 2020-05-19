@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"gitee.com/bidpoc/database-fabric-cc/db"
+	"gitee.com/bidpoc/database-fabric-cc/db/protos"
 	"gitee.com/bidpoc/database-fabric-cc/db/util"
 	"gitee.com/bidpoc/database-fabric-cc/op/table"
 )
@@ -86,12 +87,12 @@ func (operation *RowOperation) AddOrUpdate(tableName string, jsonString string, 
 	行记录汇总
 */
 func (operation *RowOperation) SetRow(table *db.Table, rowJsonArray []db.JsonData, op db.OpType) ([]db.RowID,error) {
-	rowMaps := make(map[db.RowID]*db.RowData, len(rowJsonArray))
+	rowMaps := make(map[db.RowID]*protos.RowData, len(rowJsonArray))
 	rowIDs := make([]db.RowID, 0, len(rowJsonArray))
-	newRows := make([]*db.RowData, 0, len(rowJsonArray))
-	var incrementRows []*db.RowData
+	newRows := make([]*protos.RowData, 0, len(rowJsonArray))
+	var incrementRows []*protos.RowData
 	if op == db.ADD {
-		incrementRows = make([]*db.RowData, 0, len(rowJsonArray))
+		incrementRows = make([]*protos.RowData, 0, len(rowJsonArray))
 	}
 	for _,rowJson := range rowJsonArray {
 		row,err := operation.FormatRowData(table, rowJson, op); if err != nil {
@@ -107,7 +108,7 @@ func (operation *RowOperation) SetRow(table *db.Table, rowJsonArray []db.JsonDat
 		}
 		prev,ok := rowMaps[row.Id]
 		if ok {//存在
-			prev.Data = row.Data//合并到上一次记录中
+			prev.Columns = row.Columns//合并到上一次记录中
 			row = nil//清空当前记录
 		}else{
 			newRows = append(newRows, row)
@@ -145,7 +146,7 @@ func (operation *RowOperation) QueryRowWithPagination(table *db.Table, start db.
 	for _,rowData := range rows {
 		if rowData != nil && rowData.Id > 0 {
 			rowJson := db.JsonData{}
-			if len(rowData.Data) > 0 {
+			if len(rowData.Columns) > 0 {
 				rowJson,err = util.ParseRowData(table, rowData); if err != nil {
 					return pagination,err
 				}

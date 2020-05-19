@@ -5,6 +5,7 @@ import (
 	"gitee.com/bidpoc/database-fabric-cc/db/index/linkedlist"
 	"gitee.com/bidpoc/database-fabric-cc/db/index/tree"
 	"gitee.com/bidpoc/database-fabric-cc/db/index/tree/bptree"
+	"gitee.com/bidpoc/database-fabric-cc/db/protos"
 	"gitee.com/bidpoc/database-fabric-cc/db/storage"
 	"gitee.com/bidpoc/database-fabric-cc/db/storage/state"
 	"gitee.com/bidpoc/database-fabric-cc/db/util"
@@ -190,9 +191,9 @@ func (service *IndexService) GetPrimaryKeyIndexHistoryByRange(database db.Databa
 
 ///////////////////// ForeignKey Index Function //////////////////////
 
-func (service *IndexService) PutForeignKeysIndex(database db.DatabaseID, table *db.TableData, rowID db.RowID, row *db.RowData) error {
+func (service *IndexService) PutForeignKeysIndex(database db.DatabaseID, table *db.TableData, rowID db.RowID, row *protos.RowData) error {
 	for _,foreignKey := range table.ForeignKeys {
-		value := row.Data[foreignKey.ColumnID-1]
+		value := row.Columns[foreignKey.ColumnID-1].Data
 		if len(value) > 0 {
 			columnKey := db.ColumnKey{Database:database,Table:table.Id,Column:foreignKey.ColumnID}
 			if err := service.putIndexData(columnKey, value, util.RowIDToBytes(rowID), tree.InsertTypeAppend,false); err != nil {

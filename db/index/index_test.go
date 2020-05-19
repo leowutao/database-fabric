@@ -3,6 +3,7 @@ package index
 import (
 	"fmt"
 	"gitee.com/bidpoc/database-fabric-cc/db"
+	"gitee.com/bidpoc/database-fabric-cc/db/protos"
 	"gitee.com/bidpoc/database-fabric-cc/db/storage/state"
 	"gitee.com/bidpoc/database-fabric-cc/db/util"
 	"gitee.com/bidpoc/database-fabric-cc/test"
@@ -126,7 +127,7 @@ func TestForeignKey(t *testing.T) {
 			if i%10 > 0 {
 				referenceRowID++
 			}
-			row := &db.RowData{Data: [][]byte{util.RowIDToBytes(i), util.RowIDToBytes(referenceRowID)}}
+			row := &protos.RowData{Columns: []*protos.ColumnData{{Data: util.RowIDToBytes(i)}, {Data: util.RowIDToBytes(referenceRowID)}}}
 			if err := indexService.PutForeignKeysIndex(database, tableData, i, row); err != nil {
 				fmt.Println(i)
 				panic(err.Error())

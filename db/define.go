@@ -1,5 +1,7 @@
 package db
 
+import "gitee.com/bidpoc/database-fabric-cc/db/protos"
+
 //根据datatype分类，定义层级关系，key规则为上级索引+自己的索引
 //行数据结构定义：表管理所有行索引数据，多个行索引组成一个block或一个行索引分割多个block)，表对每个block定义大小，设置block头(行索引数量、行计数区间)
 //表管理所有block，每个block对应的数据大小为4kb，一个表管理的block数量需要定义
@@ -97,13 +99,13 @@ const (
 	DESC
 )
 
-type JoinType = uint8
-const (
-	JoinTypeNone JoinType = iota //不连接
-	//(存在分裂，记录行列表最后一条行部分数据包含在下一个块中)
-	JoinTypeRow //行值连接
-	JoinTypeColumn //列值连接
-)
+//type JoinType = uint8
+//const (
+//	JoinTypeNone JoinType = iota //不连接
+//	//(存在分裂，记录行列表最后一条行部分数据包含在下一个块中)
+//	JoinTypeRow //行值连接
+//	JoinTypeColumn //列值连接
+//)
 
 //以下定义每个类型索引位置，使用ID别名，值从1开始，即对应索引为i-1
 type DatabaseID = int8
@@ -123,8 +125,9 @@ type RowBlockID struct {
 	BlockID BlockID
 }
 type RowDataHistory struct {
-	Tx *TxData
-	Row *RowData
+	TxID string `json:"txID"` //事务ID
+	Time int64 `json:"time"` //事务时间戳
+	Row *protos.RowData
 }
 
 //索引kv结构
@@ -155,26 +158,26 @@ type ColumnRowKey struct {
 	Row RowID `json:"row"`
 }
 
-//事务数据
-type TxData struct {
-	TxID string `json:"txID"` //事务ID
-	Time Timestamp `json:"time"` //事务时间戳
-}
-
-//行块数据(行集合数据)
-type BlockData struct {
-	Id BlockID `json:"id"`
-	TxData
-	Rows []RowData `json:"rows"` //行数据列表
-	Join JoinType `json:"join"` //块连接方式
-}
-
-//行数据
-type RowData struct {
-	Id RowID `json:"id"` //行ID
-	Op OpType `json:"op"` //操作类型
-	Data [][]byte `json:"data"` //行数据，代表多列数据列表，与表列对齐
-}
+////事务数据
+//type TxData struct {
+//	TxID string `json:"txID"` //事务ID
+//	Time Timestamp `json:"time"` //事务时间戳
+//}
+//
+////行块数据(行集合数据)
+//type BlockData struct {
+//	Id BlockID `json:"id"`
+//	TxData
+//	Rows []RowData `json:"rows"` //行数据列表
+//	Join JoinType `json:"join"` //块连接方式
+//}
+//
+////行数据
+//type RowData struct {
+//	Id RowID `json:"id"` //行ID
+//	Op OpType `json:"op"` //操作类型
+//	Data [][]byte `json:"data"` //行数据，代表多列数据列表，与表列对齐
+//}
 
 type TableTally struct {
 	TableID TableID `json:"tableID"`
