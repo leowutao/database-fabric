@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package protos;
+
+message BlockData {
+    int32 id = 1;
+    string txID = 2;
+    int64 time = 3;
+    repeated RowData rows = 4;
+    enum JoinType {
+        //不连接
+    	JoinTypeNone = 0;
+    	//(存在分裂，记录行列表最后一条行部分数据包含在下一个块中)
+    	//行值连接
+    	JoinTypeRow = 1;
+    	//列值连接
+    	JoinTypeColumn = 2;
+    }
+    JoinType join = 5;
+}
+
+message RowData {
+    int64 id = 1;
+    uint32 op = 2;
+    repeated ColumnData columns = 3;
+}
+
+message ColumnData {
+    bytes data = 1;
+}
