@@ -3,9 +3,9 @@ package block
 import (
 	"fmt"
 	"gitee.com/bidpoc/database-fabric-cc/db"
-	"gitee.com/bidpoc/database-fabric-cc/db/protos"
 	"gitee.com/bidpoc/database-fabric-cc/db/storage/state"
 	"gitee.com/bidpoc/database-fabric-cc/db/util"
+	"gitee.com/bidpoc/database-fabric-cc/protos/db/row"
 	"gitee.com/bidpoc/database-fabric-cc/test"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -25,37 +25,37 @@ func TestBlock(t *testing.T) {
 	{
 		start := db.RowID(1)
 		size := db.RowID(1000)
-		rows := make([]*protos.RowData, 0, size)
+		rows := make([]*row.RowData, 0, size)
 		referenceRows := make(map[db.RowID][]db.RowID, size/10)
 		for i := start; i <= size; i++ {
 			referenceRowID := db.RowID(i / 10)
 			if i%10 > 0 {
 				referenceRowID++
 			}
-			rows = append(rows, &protos.RowData{Id:i,Op:uint32(db.ADD),Columns:[]*protos.ColumnData{{Data:util.RowIDToBytes(i)}, {Data:util.RowIDToBytes(referenceRowID)}}})
+			rows = append(rows, &row.RowData{Id: i,Op:uint32(db.ADD),Columns:[]*row.ColumnData{{Data: util.RowIDToBytes(i)}, {Data: util.RowIDToBytes(referenceRowID)}}})
 			rowIDs := referenceRows[referenceRowID]
 			referenceRows[referenceRowID] = append(rowIDs, i)
 		}
 		if err := blockService.SetBlockData(tableData, tally, rows); err != nil {
 			panic(err.Error())
 		}
-		for _, row := range rows {
-			blockID, err := blockService.QueryRowBlockID(tableData, row.Id);
+		for _, rowData := range rows {
+			blockID, err := blockService.QueryRowBlockID(tableData, rowData.Id);
 			if err != nil {
 				panic(err.Error())
 			}
-			assert.EqualValues(t, blockID > 0,true, fmt.Sprintf("row `%d` block error", row.Id))
-			rowData, err := blockService.QueryRowData(tableData, row.Id);
+			assert.EqualValues(t, blockID > 0,true, fmt.Sprintf("row `%d` block error", rowData.Id))
+			rowData, err := blockService.QueryRowData(tableData, rowData.Id);
 			if err != nil {
 				panic(err.Error())
 			}
-			assert.NotNil(t, rowData, fmt.Sprintf("row `%d error", row.Id))
-			rowHistories, total, err := blockService.QueryRowDataHistoryByRange(tableData, row.Id, db.DESC,100);
+			assert.NotNil(t, rowData, fmt.Sprintf("row `%d error", rowData.Id))
+			rowHistories, total, err := blockService.QueryRowDataHistoryByRange(tableData, rowData.Id, db.DESC,100);
 			if err != nil {
 				panic(err.Error())
 			}
-			assert.EqualValues(t, total > 0,true, fmt.Sprintf("row `%d` history total error", row.Id))
-			assert.EqualValues(t, len(rowHistories) > 0,true, fmt.Sprintf("row `%d` history list error", row.Id))
+			assert.EqualValues(t, total > 0,true, fmt.Sprintf("row `%d` history total error", rowData.Id))
+			assert.EqualValues(t, len(rowHistories) > 0,true, fmt.Sprintf("row `%d` history list error", rowData.Id))
 		}
 		//行记录范围查询
 		pageSize := int32(15)
@@ -85,11 +85,11 @@ func TestBlock(t *testing.T) {
 		for i:=0;i<int(columnSize);i++{
 			columnData = append(columnData,1)
 		}
-		data := make([]*protos.ColumnData, 0, columnSize)
+		data := make([]*row.ColumnData, 0, columnSize)
 		for i:=0;i<columnLength;i++ {
-			data = append(data, &protos.ColumnData{Data:columnData})
+			data = append(data, &row.ColumnData{Data: columnData})
 		}
-		validRowData := func(rowData *protos.RowData, id db.RowID){
+		validRowData := func(rowData *row.RowData, id db.RowID){
 			assert.NotNil(t, rowData, fmt.Sprintf("row `%d error", id))
 			assert.EqualValues(t, rowData.Id, id, fmt.Sprintf("row `%d error", id))
 			assert.EqualValues(t, len(rowData.Columns), columnLength,"row data len error")
@@ -99,8 +99,8 @@ func TestBlock(t *testing.T) {
 		}
 		//单行分裂
 		{
-			row := &protos.RowData{Id:rowID,Op:uint32(db.UPDATE),Columns:data}
-			rows := []*protos.RowData{row}
+			rowData := &row.RowData{Id: rowID,Op:uint32(db.UPDATE),Columns:data}
+			rows := []*row.RowData{rowData}
 			if err := blockService.SetBlockData(tableData, tally, rows); err != nil {
 				panic(err.Error())
 			}
@@ -112,19 +112,19 @@ func TestBlock(t *testing.T) {
 				panic(err.Error())
 			}
 			assert.EqualValues(t, len(block.Rows),1, "row block len error")
-			assert.EqualValues(t, block.Join, protos.BlockData_JoinTypeRow,"row block join error")
-			rowData, err := blockService.QueryRowData(tableData, rowID);
+			assert.EqualValues(t, block.Join, row.BlockData_JOIN_ROW,"row block join error")
+			queryRowData, err := blockService.QueryRowData(tableData, rowID);
 			if err != nil {
 				panic(err.Error())
 			}
-			validRowData(rowData, rowID)
+			validRowData(queryRowData, rowID)
 		}
 		//多行分裂
 		{
 			size := db.RowID(3)
-			rows := make([]*protos.RowData, 0, size)
+			rows := make([]*row.RowData, 0, size)
 			for i:=rowID;i<=size;i++{
-				rows = append(rows, &protos.RowData{Id:i,Op:uint32(db.UPDATE),Columns:data})
+				rows = append(rows, &row.RowData{Id: i,Op:uint32(db.UPDATE),Columns:data})
 			}
 			if err := blockService.SetBlockData(tableData, tally, rows); err != nil {
 				panic(err.Error())
@@ -156,7 +156,7 @@ func TestBlock(t *testing.T) {
 				panic(err.Error())
 			}
 			assert.EqualValues(t, len(block.Rows),1, "row block len error")
-			assert.EqualValues(t, block.Join, protos.BlockData_JoinTypeColumn,"row block join error")
+			assert.EqualValues(t, block.Join, row.BlockData_JOIN_COLUMN,"row block join error")
 			rowData, err := blockService.QueryRowData(tableData, rowID); if err != nil {
 				panic(err.Error())
 			}
@@ -170,8 +170,8 @@ func TestBlock(t *testing.T) {
 		}
 		//单列分裂
 		{
-			rows := make([]*protos.RowData, 0, 1)
-			rows = append(rows, &protos.RowData{Id:rowID,Op:uint32(db.UPDATE),Columns:[]*protos.ColumnData{{Data:util.RowIDToBytes(rowID)}, {Data:columnData}}})
+			rows := make([]*row.RowData, 0, 1)
+			rows = append(rows, &row.RowData{Id: rowID,Op:uint32(db.UPDATE),Columns:[]*row.ColumnData{{Data: util.RowIDToBytes(rowID)}, {Data: columnData}}})
 			if err := blockService.SetBlockData(tableData, tally, rows); err != nil {
 				panic(err.Error())
 			}
@@ -180,14 +180,14 @@ func TestBlock(t *testing.T) {
 		}
 		//多列分裂
 		{
-			rows := make([]*protos.RowData, 0, 1)
+			rows := make([]*row.RowData, 0, 1)
 			columnLength := 100
-			columns := make([]*protos.ColumnData, 0, columnLength)
-			columns = append(columns, &protos.ColumnData{Data:util.RowIDToBytes(rowID)})
+			columns := make([]*row.ColumnData, 0, columnLength)
+			columns = append(columns, &row.ColumnData{Data: util.RowIDToBytes(rowID)})
 			for i:=1;i<columnLength;i++ {
-				columns = append(columns, &protos.ColumnData{Data:columnData})
+				columns = append(columns, &row.ColumnData{Data: columnData})
 			}
-			rows = append(rows, &protos.RowData{Id:rowID,Op:uint32(db.UPDATE),Columns:columns})
+			rows = append(rows, &row.RowData{Id: rowID,Op:uint32(db.UPDATE),Columns:columns})
 			if err := blockService.SetBlockData(tableData, tally, rows); err != nil {
 				panic(err.Error())
 			}

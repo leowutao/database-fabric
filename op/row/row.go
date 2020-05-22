@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"gitee.com/bidpoc/database-fabric-cc/db"
-	"gitee.com/bidpoc/database-fabric-cc/db/protos"
 	"gitee.com/bidpoc/database-fabric-cc/db/util"
 	"gitee.com/bidpoc/database-fabric-cc/op/table"
+	"gitee.com/bidpoc/database-fabric-cc/protos/db/row"
 )
 
 type RowOperation struct {
@@ -87,33 +87,33 @@ func (operation *RowOperation) AddOrUpdate(tableName string, jsonString string, 
 	行记录汇总
 */
 func (operation *RowOperation) SetRow(table *db.Table, rowJsonArray []db.JsonData, op db.OpType) ([]db.RowID,error) {
-	rowMaps := make(map[db.RowID]*protos.RowData, len(rowJsonArray))
+	rowMaps := make(map[db.RowID]*row.RowData, len(rowJsonArray))
 	rowIDs := make([]db.RowID, 0, len(rowJsonArray))
-	newRows := make([]*protos.RowData, 0, len(rowJsonArray))
-	var incrementRows []*protos.RowData
+	newRows := make([]*row.RowData, 0, len(rowJsonArray))
+	var incrementRows []*row.RowData
 	if op == db.ADD {
-		incrementRows = make([]*protos.RowData, 0, len(rowJsonArray))
+		incrementRows = make([]*row.RowData, 0, len(rowJsonArray))
 	}
 	for _,rowJson := range rowJsonArray {
-		row,err := operation.FormatRowData(table, rowJson, op); if err != nil {
+		rowData,err := operation.FormatRowData(table, rowJson, op); if err != nil {
 			return nil,err
 		}
-		if row.Id == 0 {
+		if rowData.Id == 0 {
 			if table.Data.PrimaryKey.AutoIncrement {//自增行不合并
-				incrementRows = append(incrementRows, row)
+				incrementRows = append(incrementRows, rowData)
 				continue
 			}else{
 				return nil,fmt.Errorf("SetRow rowID is null")
 			}
 		}
-		prev,ok := rowMaps[row.Id]
+		prev,ok := rowMaps[rowData.Id]
 		if ok {//存在
-			prev.Columns = row.Columns//合并到上一次记录中
-			row = nil//清空当前记录
+			prev.Columns = rowData.Columns//合并到上一次记录中
+			rowData = nil//清空当前记录
 		}else{
-			newRows = append(newRows, row)
-			rowMaps[row.Id] = row
-			rowIDs = append(rowIDs, row.Id)
+			newRows = append(newRows, rowData)
+			rowMaps[rowData.Id] = rowData
+			rowIDs = append(rowIDs, rowData.Id)
 		}
 	}
 	newRows = append(newRows, incrementRows...)//自增行追加到尾端

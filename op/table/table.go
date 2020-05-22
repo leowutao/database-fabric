@@ -17,7 +17,7 @@ func NewTableOperation(iDatabase db.DatabaseInterface) *TableOperation {
 
 type Data struct {
 	Name string `json:"name"`
-	Columns []db.ColumnData `json:"columns"`
+	Columns []db.ColumnConfig `json:"columns"`
 	PrimaryKey PrimaryKey `json:"primaryKey"`
 	ForeignKeys []ForeignKey `json:"foreignKeys"`
 }
@@ -68,7 +68,7 @@ func (operation *TableOperation) QueryTableData(tableName string) ([]byte,error)
 func (operation *TableOperation) ParseTableData(table *db.Table) (Data,error) {
 	data := Data{
 		Name:table.Data.Name,
-		Columns:make([]db.ColumnData, 0, len(table.Data.Columns)),
+		Columns:make([]db.ColumnConfig, 0, len(table.Data.Columns)),
 		PrimaryKey:PrimaryKey{ColumnName:table.Primary.Name,AutoIncrement:table.Data.PrimaryKey.AutoIncrement},
 		ForeignKeys:make([]ForeignKey,0 , len(table.Data.ForeignKeys)),
 	}
@@ -77,7 +77,7 @@ func (operation *TableOperation) ParseTableData(table *db.Table) (Data,error) {
 		if column.IsDeleted {
 			continue
 		}
-		data.Columns = append(data.Columns, column.ColumnData)
+		data.Columns = append(data.Columns, column.ColumnConfig)
 		columnMaps[column.Id] = column.Name
 	}
 	for _,foreignKey := range table.Data.ForeignKeys {
@@ -125,7 +125,7 @@ func (operation *TableOperation) FormatTableData(jsonString string) (*db.TableDa
 			return nil,fmt.Errorf("column `%s` is repeat", c.Name)
 		}
 		id := db.ColumnID(i+1)
-		column := &db.Column{Id:id,ColumnData:c}
+		column := &db.Column{Id:id,ColumnConfig:c}
 		if column.Name == data.PrimaryKey.ColumnName {
 			primary = column
 			tableData.PrimaryKey = db.PrimaryKey{ColumnID:id,AutoIncrement:data.PrimaryKey.AutoIncrement}

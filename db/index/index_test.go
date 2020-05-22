@@ -3,7 +3,7 @@ package index
 import (
 	"fmt"
 	"gitee.com/bidpoc/database-fabric-cc/db"
-	"gitee.com/bidpoc/database-fabric-cc/db/protos"
+	"gitee.com/bidpoc/database-fabric-cc/protos"
 	"gitee.com/bidpoc/database-fabric-cc/db/storage/state"
 	"gitee.com/bidpoc/database-fabric-cc/db/util"
 	"gitee.com/bidpoc/database-fabric-cc/test"

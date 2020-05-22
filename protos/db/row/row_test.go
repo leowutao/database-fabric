@@ -15,9 +15,9 @@ func TestRow(t *testing.T) {
 	size := 5000
 	columns := make([]*ColumnData, 0, size)
 	for i:=0;i<size;i++ {
-		columns = append(columns, &ColumnData{Data:columnData})
+		columns = append(columns, &ColumnData{Data: columnData})
 	}
-	row := &RowData{Id:db.RowID(1),Op:uint32(db.ADD),Columns:columns}
+	row := &RowData{Id: db.RowID(1),Op:uint32(db.ADD),Columns:columns}
 	proto.Marshal(row)
 	//fmt.Println("序列化之后的信息为：",buffer)
 	//newRow := &RowData{}

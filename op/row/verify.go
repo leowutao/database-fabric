@@ -3,8 +3,8 @@ package row
 import (
 	"fmt"
 	"gitee.com/bidpoc/database-fabric-cc/db"
-	"gitee.com/bidpoc/database-fabric-cc/db/protos"
 	"gitee.com/bidpoc/database-fabric-cc/db/util"
+	"gitee.com/bidpoc/database-fabric-cc/protos/db/row"
 )
 
 /**
@@ -36,7 +36,7 @@ func (operation *RowOperation) validateExists(table *db.TableData, rowID db.RowI
 /**
 	验证表中行数据必须不为空，并获取行数据
 */
-func (operation *RowOperation) validateNullOfData(table *db.TableData, rowID db.RowID) (*protos.RowData,error) {
+func (operation *RowOperation) validateNullOfData(table *db.TableData, rowID db.RowID) (*row.RowData,error) {
 	row,err := operation.iDatabase.QueryRowData(table, rowID); if err != nil {
 		return nil,err
 	}
@@ -63,7 +63,7 @@ func (operation *RowOperation) validateExistsByForeignKey(table *db.TableData, f
 	json数据格式化行数据(新增、修改、删除操作)
 	1、验证数据类型，2、序列化数据，3、验证外建约束，4、列数据组装成行
 */
-func (operation *RowOperation) FormatRowData(table *db.Table, rowJson db.JsonData, op db.OpType) (*protos.RowData,error) {
+func (operation *RowOperation) FormatRowData(table *db.Table, rowJson db.JsonData, op db.OpType) (*row.RowData,error) {
 	primaryColumn := table.Data.Columns[table.Data.PrimaryKey.ColumnID-1]
 	id,exists := rowJson[primaryColumn.Name]
 	rowID := db.RowID(0)
@@ -73,51 +73,51 @@ func (operation *RowOperation) FormatRowData(table *db.Table, rowJson db.JsonDat
 			return  nil,err
 		}
 	}
-	row := &protos.RowData{Id:rowID, Op:uint32(op)}
+	rowData := &row.RowData{Id: rowID, Op:uint32(op)}
 	if op == db.UPDATE || op == db.DELETE {
-		if row.Id == 0 {
+		if rowData.Id == 0 {
 			return nil,fmt.Errorf("update or delete row must rowID")
 		}
-		oldRow,err := operation.validateNullOfData(table.Data, row.Id); if err != nil {
+		oldRow,err := operation.validateNullOfData(table.Data, rowData.Id); if err != nil {
 			return nil,err
 		}
-		row.Columns = oldRow.Columns
+		rowData.Columns = oldRow.Columns
 		oldRow = nil
 	}else if op == db.ADD {
-		if row.Id == 0 && !table.Data.PrimaryKey.AutoIncrement {//非自增
+		if rowData.Id == 0 && !table.Data.PrimaryKey.AutoIncrement {//非自增
 			return nil,fmt.Errorf("add row must rowID or set autoIncrement=true")
 		}else{
-			if err := operation.validateExists(table.Data, row.Id); err != nil {
+			if err := operation.validateExists(table.Data, rowData.Id); err != nil {
 				return nil,err
 			}
 		}
 	}
 
 	if op == db.ADD || op == db.UPDATE {
-		if err := operation.formatAddOrUpdateRowData(table, rowJson, row); err != nil {
+		if err := operation.formatAddOrUpdateRowData(table, rowJson, rowData); err != nil {
 			return nil,err
 		}
 	}else if op == db.DELETE {
-		if err := operation.verifyDeleteRowData(table, row.Id); err != nil {
+		if err := operation.verifyDeleteRowData(table, rowData.Id); err != nil {
 			return nil,err
 		}
 	}
-	return row,nil
+	return rowData,nil
 }
 
 /**
 	格式化添加或修改行数据
  */
-func (operation *RowOperation) formatAddOrUpdateRowData(table *db.Table, rowJson db.JsonData, row *protos.RowData) error {
+func (operation *RowOperation) formatAddOrUpdateRowData(table *db.Table, rowJson db.JsonData, rowData *row.RowData) error {
 	//列数据验证和序列化
-	var adds []*protos.ColumnData
-	if len(table.Data.Columns) > len(row.Columns) {
-		adds = make([]*protos.ColumnData, 0, len(table.Data.Columns)-len(row.Columns))
+	var adds []*row.ColumnData
+	if len(table.Data.Columns) > len(rowData.Columns) {
+		adds = make([]*row.ColumnData, 0, len(table.Data.Columns)-len(rowData.Columns))
 	}
 	for i,column := range table.Data.Columns {
-		columnData := &protos.ColumnData{}
-		if i < len(row.Columns) {//获取原行中列值
-			columnData = row.Columns[i]
+		columnData := &row.ColumnData{}
+		if i < len(rowData.Columns) {//获取原行中列值
+			columnData = rowData.Columns[i]
 		}
 		if column.Id != table.Data.PrimaryKey.ColumnID && !column.IsDeleted { //过滤主键和删除列
 			value, ok := rowJson[column.Name] //匹配待写入列值
@@ -144,14 +144,14 @@ func (operation *RowOperation) formatAddOrUpdateRowData(table *db.Table, rowJson
 			}
 		}
 		//列数据组装
-		if i < len(row.Columns) {
-			row.Columns[i] = columnData
+		if i < len(rowData.Columns) {
+			rowData.Columns[i] = columnData
 		}else{
 			adds = append(adds, columnData)
 		}
 	}
 	if len(adds) > 0 {
-		row.Columns = append(row.Columns, adds...)
+		rowData.Columns = append(rowData.Columns, adds...)
 	}
 	return nil
 }

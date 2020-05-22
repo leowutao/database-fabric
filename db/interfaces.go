@@ -1,6 +1,8 @@
 package db
 
-import "gitee.com/bidpoc/database-fabric-cc/db/protos"
+import (
+	"gitee.com/bidpoc/database-fabric-cc/protos/db/row"
+)
 
 type DatabaseInterface interface {
 	GetRelation() (*Relation,error)
@@ -18,13 +20,13 @@ type DatabaseInterface interface {
 	QueryTableDataByName(tableName string) (*TableData,error)
 	QueryTableDataByID(tableID TableID) (*TableData,error)
 
-	AddRowData(table *TableData, rows []*protos.RowData) error
+	AddRowData(table *TableData, rows []*row.RowData) error
 
 	QueryRowBlockID(table *TableData, rowID RowID) (BlockID,error)
-	QueryRowData(table *TableData, rowID RowID) (*protos.RowData,error)
+	QueryRowData(table *TableData, rowID RowID) (*row.RowData,error)
 	QueryRowIDByForeignKey(tableID TableID, foreignKey ForeignKey, referenceRowID RowID, size int32) ([]RowID,error)
 
-	QueryRowDataByRange(table *TableData, start RowID, end RowID, order OrderType, size int32) ([]*protos.RowData,error)
+	QueryRowDataByRange(table *TableData, start RowID, end RowID, order OrderType, size int32) ([]*row.RowData,error)
 
 	QueryRowDataHistoryByRange(table *TableData, rowID RowID, order OrderType, size int32) ([]*RowDataHistory,Total,error)
 }

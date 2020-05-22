@@ -5,10 +5,10 @@ import (
 	"gitee.com/bidpoc/database-fabric-cc/db/index/linkedlist"
 	"gitee.com/bidpoc/database-fabric-cc/db/index/tree"
 	"gitee.com/bidpoc/database-fabric-cc/db/index/tree/bptree"
-	"gitee.com/bidpoc/database-fabric-cc/db/protos"
 	"gitee.com/bidpoc/database-fabric-cc/db/storage"
 	"gitee.com/bidpoc/database-fabric-cc/db/storage/state"
 	"gitee.com/bidpoc/database-fabric-cc/db/util"
+	"gitee.com/bidpoc/database-fabric-cc/protos/db/row"
 )
 
 type IndexService struct {
@@ -191,7 +191,7 @@ func (service *IndexService) GetPrimaryKeyIndexHistoryByRange(database db.Databa
 
 ///////////////////// ForeignKey Index Function //////////////////////
 
-func (service *IndexService) PutForeignKeysIndex(database db.DatabaseID, table *db.TableData, rowID db.RowID, row *protos.RowData) error {
+func (service *IndexService) PutForeignKeysIndex(database db.DatabaseID, table *db.TableData, rowID db.RowID, row *row.RowData) error {
 	for _,foreignKey := range table.ForeignKeys {
 		value := row.Columns[foreignKey.ColumnID-1].Data
 		if len(value) > 0 {

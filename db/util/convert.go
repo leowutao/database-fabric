@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"gitee.com/bidpoc/database-fabric-cc/db"
-	"gitee.com/bidpoc/database-fabric-cc/db/protos"
+	"gitee.com/bidpoc/database-fabric-cc/protos/db/row"
 	"github.com/shopspring/decimal"
 	"net/url"
 	"reflect"
@@ -438,18 +438,18 @@ func FormatColumnData(column db.Column, value interface{}) ([]byte,error) {
 }
 
 
-func ParseRowData(table *db.Table, rowData *protos.RowData) (db.JsonData,error) {
+func ParseRowData(table *db.Table, rowData *row.RowData) (db.JsonData,error) {
 	var err error
 	dataLength := 0
 	if rowData != nil {
 		dataLength = len(rowData.Columns)
 	}
-	row := db.JsonData{}
+	rowJson := db.JsonData{}
 	for i,column := range table.Data.Columns {
 		if column.IsDeleted {
 			continue
 		}
-		columnData := &protos.ColumnData{}
+		columnData := &row.ColumnData{}
 		if rowData != nil && i < dataLength {
 			columnData = rowData.Columns[i]
 		}else{
@@ -465,9 +465,9 @@ func ParseRowData(table *db.Table, rowData *protos.RowData) (db.JsonData,error) 
 				return nil,err
 			}
 		}
-		row[column.Name] = value
+		rowJson[column.Name] = value
 	}
-	return row,nil
+	return rowJson,nil
 }
 
 func ParseColumnDataByNull(column db.Column) (interface{},error) {
