@@ -3,13 +3,13 @@ package database
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/bidpoc/database-fabric-cc/db"
-	"github.com/bidpoc/database-fabric-cc/db/block"
-	"github.com/bidpoc/database-fabric-cc/db/storage"
-	"github.com/bidpoc/database-fabric-cc/db/storage/state"
-	"github.com/bidpoc/database-fabric-cc/db/table"
-	"github.com/bidpoc/database-fabric-cc/db/util"
-	"github.com/bidpoc/database-fabric-cc/protos/db/row"
+	"github.com/database-fabric/db"
+	"github.com/database-fabric/db/block"
+	"github.com/database-fabric/db/storage"
+	"github.com/database-fabric/db/storage/state"
+	"github.com/database-fabric/db/table"
+	"github.com/database-fabric/db/util"
+	"github.com/database-fabric/protos/db/row"
 )
 
 type DatabaseImpl struct {

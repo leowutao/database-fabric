@@ -1,9 +1,9 @@
 package database
 
 import (
-	"github.com/bidpoc/database-fabric-cc/db"
-	"github.com/bidpoc/database-fabric-cc/db/storage/state"
-	"github.com/bidpoc/database-fabric-cc/test"
+	"github.com/database-fabric/db"
+	"github.com/database-fabric/db/storage/state"
+	"github.com/database-fabric/test"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )

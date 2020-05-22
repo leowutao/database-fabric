@@ -1,7 +1,7 @@
 package state
 
 import (
-	"github.com/bidpoc/database-fabric-cc/db"
+	"github.com/database-fabric/db"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 )
 

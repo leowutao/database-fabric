@@ -3,10 +3,10 @@ package row
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/bidpoc/database-fabric-cc/db"
-	"github.com/bidpoc/database-fabric-cc/db/util"
-	"github.com/bidpoc/database-fabric-cc/op/table"
-	"github.com/bidpoc/database-fabric-cc/protos/db/row"
+	"github.com/database-fabric/db"
+	"github.com/database-fabric/db/util"
+	"github.com/database-fabric/op/table"
+	"github.com/database-fabric/protos/db/row"
 )
 
 type RowOperation struct {

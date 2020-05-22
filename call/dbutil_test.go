@@ -3,9 +3,9 @@ package call
 //import (
 //	"encoding/json"
 //	"fmt"
-//	"github.com/bidpoc/database-fabric-cc/db"
-//	"github.com/bidpoc/database-fabric-cc/db/util"
-//	"github.com/bidpoc/database-fabric-cc/test"
+//	"github.com/database-fabric/db"
+//	"github.com/database-fabric/db/util"
+//	"github.com/database-fabric/test"
 //	"github.com/hyperledger/fabric/core/chaincode/shim"
 //	pb "github.com/hyperledger/fabric/protos/peer"
 //	"testing"

@@ -1,8 +1,8 @@
 package other
 
 import (
-	"github.com/bidpoc/database-fabric-cc/db/storage"
-	"github.com/bidpoc/database-fabric-cc/db/storage/state"
+	"github.com/database-fabric/db/storage"
+	"github.com/database-fabric/db/storage/state"
 )
 
 type OtherService struct {

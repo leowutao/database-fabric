@@ -3,7 +3,7 @@ package tree
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/bidpoc/database-fabric-cc/db/util"
+	"github.com/database-fabric/db/util"
 )
 
 type Parse struct {

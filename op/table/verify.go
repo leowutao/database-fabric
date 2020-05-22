@@ -2,7 +2,7 @@ package table
 
 import (
 	"fmt"
-	"github.com/bidpoc/database-fabric-cc/db"
+	"github.com/database-fabric/db"
 )
 
 func ValidateNull(tableName string, iDatabase db.DatabaseInterface) error {

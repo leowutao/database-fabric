@@ -3,9 +3,9 @@ package bptree
 import (
 	"bytes"
 	"fmt"
-	"github.com/bidpoc/database-fabric-cc/db"
-	"github.com/bidpoc/database-fabric-cc/db/index/tree"
-	"github.com/bidpoc/database-fabric-cc/db/util"
+	"github.com/database-fabric/db"
+	"github.com/database-fabric/db/index/tree"
+	"github.com/database-fabric/db/util"
 )
 
 type Position = int16 //关键字位置，最大值32768(一个节点关键字数量不超过1000)

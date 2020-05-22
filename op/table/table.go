@@ -3,8 +3,8 @@ package table
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/bidpoc/database-fabric-cc/db"
-	"github.com/bidpoc/database-fabric-cc/db/util"
+	"github.com/database-fabric/db"
+	"github.com/database-fabric/db/util"
 )
 
 type TableOperation struct {

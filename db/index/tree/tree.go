@@ -1,8 +1,8 @@
 package tree
 
 import (
-	"github.com/bidpoc/database-fabric-cc/db"
-	"github.com/bidpoc/database-fabric-cc/db/util"
+	"github.com/database-fabric/db"
+	"github.com/database-fabric/db/util"
 )
 
 type Pointer = int32  //节点指针类型，占用4byte(节点关键字指向下级指针大小，如果关键字和下级指针类型一致，即占用8byte)

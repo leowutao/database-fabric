@@ -2,11 +2,11 @@ package block
 
 import (
 	"fmt"
-	"github.com/bidpoc/database-fabric-cc/db"
-	"github.com/bidpoc/database-fabric-cc/db/storage/state"
-	"github.com/bidpoc/database-fabric-cc/db/util"
-	"github.com/bidpoc/database-fabric-cc/protos/db/row"
-	"github.com/bidpoc/database-fabric-cc/test"
+	"github.com/database-fabric/db"
+	"github.com/database-fabric/db/storage/state"
+	"github.com/database-fabric/db/util"
+	"github.com/database-fabric/protos/db/row"
+	"github.com/database-fabric/test"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )

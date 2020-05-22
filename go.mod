@@ -1,4 +1,4 @@
-module github.com/bidpoc/database-fabric-cc
+module github.com/database-fabric
 
 require (
 	github.com/fsouza/go-dockerclient v1.6.0 // indirect

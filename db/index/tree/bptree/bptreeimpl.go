@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/bidpoc/database-fabric-cc/db"
-	"github.com/bidpoc/database-fabric-cc/db/index/tree"
-	"github.com/bidpoc/database-fabric-cc/db/storage"
-	"github.com/bidpoc/database-fabric-cc/db/util"
+	"github.com/database-fabric/db"
+	"github.com/database-fabric/db/index/tree"
+	"github.com/database-fabric/db/storage"
+	"github.com/database-fabric/db/util"
 )
 
 /////////////////// Service Function ///////////////////

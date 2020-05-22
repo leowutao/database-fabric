@@ -1,7 +1,7 @@
 package row
 
 import (
-	"github.com/bidpoc/database-fabric-cc/db"
+	"github.com/database-fabric/db"
 	"github.com/golang/protobuf/proto"
 	"testing"
 )

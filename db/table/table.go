@@ -3,10 +3,10 @@ package table
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/bidpoc/database-fabric-cc/db"
-	"github.com/bidpoc/database-fabric-cc/db/storage"
-	"github.com/bidpoc/database-fabric-cc/db/storage/state"
-	"github.com/bidpoc/database-fabric-cc/db/util"
+	"github.com/database-fabric/db"
+	"github.com/database-fabric/db/storage"
+	"github.com/database-fabric/db/storage/state"
+	"github.com/database-fabric/db/util"
 )
 
 type TableService struct {
