@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package call;
+
+enum CallType {
+    QUERY_DATABASE = 0;
+    CREATE_DATABASE = 1;
+    UPDATE_DATABASE = 2;
+    DROP_DATABASE = 3;
+    QUERY_TABLE = 4;
+    CREATE_TABLE = 5;
+    ALTER_TABLE = 6;
+    DROP_TABLE = 7;
+    QUERY_ROW = 8;
+    QUERY_PAGINATION_ROW = 9;
+    INSERT_ROW = 10;
+    UPDATE_ROW = 11;
+    DELETE_ROW = 12;
+}
+
+message CallInfo {
+    CallType type = 1;
+    bytes content = 2;
+}
