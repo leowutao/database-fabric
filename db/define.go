@@ -1,6 +1,6 @@
 package db
 
-import "gitee.com/bidpoc/database-fabric-cc/protos/db/row"
+import "github.com/bidpoc/database-fabric-cc/protos/db/row"
 
 const ChainPrefix = ""
 

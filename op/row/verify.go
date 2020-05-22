@@ -2,9 +2,9 @@ package row
 
 import (
 	"fmt"
-	"gitee.com/bidpoc/database-fabric-cc/db"
-	"gitee.com/bidpoc/database-fabric-cc/db/util"
-	"gitee.com/bidpoc/database-fabric-cc/protos/db/row"
+	"github.com/bidpoc/database-fabric-cc/db"
+	"github.com/bidpoc/database-fabric-cc/db/util"
+	"github.com/bidpoc/database-fabric-cc/protos/db/row"
 )
 
 /**

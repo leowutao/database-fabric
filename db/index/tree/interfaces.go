@@ -1,7 +1,7 @@
 package tree
 
 import (
-	"gitee.com/bidpoc/database-fabric-cc/db"
+	"github.com/bidpoc/database-fabric-cc/db"
 )
 
 type TreeInterface interface {

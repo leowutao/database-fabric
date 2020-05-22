@@ -2,11 +2,11 @@ package block
 
 import (
 	"fmt"
-	"gitee.com/bidpoc/database-fabric-cc/db"
-	"gitee.com/bidpoc/database-fabric-cc/db/index"
-	"gitee.com/bidpoc/database-fabric-cc/db/storage"
-	"gitee.com/bidpoc/database-fabric-cc/db/storage/state"
-	"gitee.com/bidpoc/database-fabric-cc/protos/db/row"
+	"github.com/bidpoc/database-fabric-cc/db"
+	"github.com/bidpoc/database-fabric-cc/db/index"
+	"github.com/bidpoc/database-fabric-cc/db/storage"
+	"github.com/bidpoc/database-fabric-cc/db/storage/state"
+	"github.com/bidpoc/database-fabric-cc/protos/db/row"
 	"github.com/golang/protobuf/proto"
 )
 

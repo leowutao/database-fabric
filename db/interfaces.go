@@ -1,7 +1,7 @@
 package db
 
 import (
-	"gitee.com/bidpoc/database-fabric-cc/protos/db/row"
+	"github.com/bidpoc/database-fabric-cc/protos/db/row"
 )
 
 type DatabaseInterface interface {

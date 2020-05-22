@@ -2,11 +2,11 @@ package index
 
 import (
 	"fmt"
-	"gitee.com/bidpoc/database-fabric-cc/db"
-	"gitee.com/bidpoc/database-fabric-cc/protos"
-	"gitee.com/bidpoc/database-fabric-cc/db/storage/state"
-	"gitee.com/bidpoc/database-fabric-cc/db/util"
-	"gitee.com/bidpoc/database-fabric-cc/test"
+	"github.com/bidpoc/database-fabric-cc/db"
+	"github.com/bidpoc/database-fabric-cc/protos"
+	"github.com/bidpoc/database-fabric-cc/db/storage/state"
+	"github.com/bidpoc/database-fabric-cc/db/util"
+	"github.com/bidpoc/database-fabric-cc/test"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )

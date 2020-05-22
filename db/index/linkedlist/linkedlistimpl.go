@@ -3,9 +3,9 @@ package linkedlist
 import (
 	"encoding/json"
 	"fmt"
-	"gitee.com/bidpoc/database-fabric-cc/db"
-	"gitee.com/bidpoc/database-fabric-cc/db/storage"
-	"gitee.com/bidpoc/database-fabric-cc/db/util"
+	"github.com/bidpoc/database-fabric-cc/db"
+	"github.com/bidpoc/database-fabric-cc/db/storage"
+	"github.com/bidpoc/database-fabric-cc/db/util"
 )
 
 /////////////////// Service Function ///////////////////

@@ -1,9 +1,9 @@
 package history
 
 import (
-	"gitee.com/bidpoc/database-fabric-cc/db"
-	"gitee.com/bidpoc/database-fabric-cc/db/util"
-	"gitee.com/bidpoc/database-fabric-cc/op/table"
+	"github.com/bidpoc/database-fabric-cc/db"
+	"github.com/bidpoc/database-fabric-cc/db/util"
+	"github.com/bidpoc/database-fabric-cc/op/table"
 )
 
 type HistoryOperation struct {

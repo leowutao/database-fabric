@@ -1,9 +1,9 @@
 package call
 
 import (
-	"gitee.com/bidpoc/database-fabric-cc/db/storage/state"
-	"gitee.com/bidpoc/database-fabric-cc/protos/call"
-	"github.com/gogo/protobuf/proto"
+	"github.com/bidpoc/database-fabric-cc/db/storage/state"
+	"github.com/bidpoc/database-fabric-cc/protos/call"
+	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	pb "github.com/hyperledger/fabric/protos/peer"
 )

@@ -2,9 +2,9 @@ package index
 
 import (
 	"fmt"
-	"gitee.com/bidpoc/database-fabric-cc/db"
-	"gitee.com/bidpoc/database-fabric-cc/db/index/tree"
-	"gitee.com/bidpoc/database-fabric-cc/db/util"
+	"github.com/bidpoc/database-fabric-cc/db"
+	"github.com/bidpoc/database-fabric-cc/db/index/tree"
+	"github.com/bidpoc/database-fabric-cc/db/util"
 )
 
 type PrimaryParse struct {

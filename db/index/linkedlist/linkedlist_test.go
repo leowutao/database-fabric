@@ -2,10 +2,10 @@ package linkedlist
 
 import (
 	"fmt"
-	"gitee.com/bidpoc/database-fabric-cc/db"
-	"gitee.com/bidpoc/database-fabric-cc/db/storage"
-	"gitee.com/bidpoc/database-fabric-cc/db/storage/state"
-	"gitee.com/bidpoc/database-fabric-cc/test"
+	"github.com/bidpoc/database-fabric-cc/db"
+	"github.com/bidpoc/database-fabric-cc/db/storage"
+	"github.com/bidpoc/database-fabric-cc/db/storage/state"
+	"github.com/bidpoc/database-fabric-cc/test"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )

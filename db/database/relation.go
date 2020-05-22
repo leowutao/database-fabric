@@ -2,7 +2,7 @@ package database
 
 import (
 	"fmt"
-	"gitee.com/bidpoc/database-fabric-cc/db"
+	"github.com/bidpoc/database-fabric-cc/db"
 )
 
 func GetRelationKeysByReference(reference db.ReferenceKey, relation *db.Relation) ([]db.RelationKey,error) {

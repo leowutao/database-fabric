@@ -1,7 +1,7 @@
 package state
 
 import (
-	"gitee.com/bidpoc/database-fabric-cc/db"
+	"github.com/bidpoc/database-fabric-cc/db"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 )
 

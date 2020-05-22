@@ -1,6 +1,6 @@
 package linkedlist
 
-import "gitee.com/bidpoc/database-fabric-cc/db"
+import "github.com/bidpoc/database-fabric-cc/db"
 
 type LinkedListInterface interface {
 	CreateHead(key db.ColumnRowKey) (*LinkedHead, error)
